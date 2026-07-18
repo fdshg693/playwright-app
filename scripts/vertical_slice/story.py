@@ -17,6 +17,7 @@ class Story:
     seed_url: str
     steps: list[Step]
     name: str
+    intent: str
 
 
 def load_story(path: str) -> Story:
@@ -26,4 +27,4 @@ def load_story(path: str) -> Story:
 
     steps = [Step(id=s["id"], instruction=s["instruction"]) for s in data["steps"]]
     name = data.get("name", story_path.stem)
-    return Story(seed_url=data["seed_url"], steps=steps, name=name)
+    return Story(seed_url=data["seed_url"], steps=steps, name=name, intent=data["intent"])

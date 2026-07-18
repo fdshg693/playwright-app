@@ -1,4 +1,9 @@
 name: custom pages demo
+intent: >
+  自作テストページ（resources/custom_pages）を対象に、ページ間リンク遷移・テキスト入力・
+  select・checkbox/uncheck・hover・確認のみのステップ（add_expectationのtoBeVisible/
+  toHaveText両方）まで、vertical sliceが持つ操作系tool一式を1シナリオで通しで踏めるかを
+  確認する回帰的なウォークスルー。
 seed_url: "http://localhost:8080/index.html"
 steps:
   - id: 1

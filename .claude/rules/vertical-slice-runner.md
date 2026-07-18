@@ -9,7 +9,7 @@ paths:
 
 SPEC.md の Step1（縦の一本通し）実装。`python -m scripts.vertical_slice.main --story <yaml>` で、人間の介入なしにストーリー1本を最初から最後まで実行し、`tests/generated/*.spec.ts` を生成する。責務は `.claude/plan/main/01-vertical-slice.md` に詳しい。
 
-- `story.py` — `scripts/stories/*.yaml`（`seed_url` + `steps[].instruction`）を `Story`/`Step` にロードするだけ。
+- `story.py` — `scripts/stories/*.yaml`（`seed_url` + `steps[].instruction` + `intent`）を `Story`/`Step` にロードするだけ。`intent`はこのシナリオが何を検証したい・できるかを書く必須の自由記述フィールドで、実行時のロジックには一切使われない（生成される`.spec.ts`にも反映しない）人間・AI読者向けドキュメンテーション専用。欠けていると`load_story`が`KeyError`で落ちる。
 - `cli_executor.py` の `CliExecutor` が SPEC.md でいう「サーバー」役。ネットワークサーバーではなく、1つの名前付き playwright-cli セッション（`-s=<session>`）を最初から最後まで維持するプロセス境界。**playwright-cli はコマンド失敗時も exit code 0 のまま stdout に `### Error` を返す**ため、成功判定は exit code ではなく毎回 stdout をこの文字列でチェックしている（`CliExecutor.execute`）。
 - `prompts.py` の `build_input()` が「1ステップ＝1フレッシュコンテキスト」の起点。呼び出しごとに `previous_response_id` は使わず、developer prompt + 残りステップ + 現在のsnapshot からゼロで組み立てる。ステップ内の複数ターンは `step_runner.run_step()` がこの `input_items` リストにローカルで追記して繋ぐ（＝ステップを跨いだ記憶は持たないが、ステップ内はチェーンする）。
 - `tools.py` の `TOOL_SCHEMAS` が OpenAI Responses API に渡すツール定義一式。`finish_step` はCLIコマンドではなくループ制御用の合図で、**他の操作系ツールと同じターンで一緒に呼んではいけない**契約（呼ばれた場合 `step_runner.run_step()` は同時に来た操作呼び出しを無視してログに warning を出す）。操作系ツールは `ref`（snapshotに載っているものだけ）でしか要素を指定できない。`add_expectation`（`ref`/`matcher`(`toBeVisible`|`toHaveText`)/`description`）も他の操作系ツールと同じ扱いの読み取り専用ツールで、確認のみのステップで使う。AIには`eval`スクリプトやロケータ文字列そのものを書かせず、`cli_executor.generate_locator`/`eval_raw`（`--raw`付きのCLI呼び出し）でこちら側が安定ロケータ・期待テキストを取得し、`await expect(page.<locator>).<matcher>(...)` 相当のTypeScript文を組み立てて返す（`tools._add_expectation`）。

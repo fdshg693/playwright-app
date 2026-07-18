@@ -1,4 +1,8 @@
 name: search demo
+intent: >
+  playwright.dev という外部サイトを対象に、検索欄へのfill→Enter押下→結果確認という
+  最小限の操作列でvertical sliceのコアループ（1ステップ＝1フレッシュコンテキストでの
+  AI呼び出し）が成立するかを確認する、最初の動作確認シナリオ。
 seed_url: "https://playwright.dev"
 steps:
   - id: 1

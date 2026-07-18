@@ -1,7 +1,10 @@
 name: search-demo-branch
-# seed_url is unused for a resume run: resume fast-forwards a bare
-# `cli.open()` session via replayed `run-code` instead of navigating here
-# (plan/main/05-recording-and-resume.md). Kept only because Story requires it.
+intent: >
+  search-demo.yaml実行時の記録（.tasks.jsonl）から検索結果表示までのタスクを復元し、
+  そこから「検索結果の1件目をクリックして遷移先を確認する」という別の後続処理に
+  分岐できるか（Step5のresume/分岐実行）を確認する。
+# seed_url is unused for a resume run: replayed via `run-code`, not navigated to.
+# Kept only because Story requires it. See .claude/plan/main/05-recording-and-resume.md
 seed_url: "https://playwright.dev"
 steps:
   - id: 4
