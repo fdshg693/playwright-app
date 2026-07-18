@@ -13,7 +13,7 @@
 ## 読むべきファイル・実行推奨Grep
 
 **既存実装を確認するため（優先度: 高。実装済みにつき、変更・拡張時はまずここを読む）**
-- 読む: `scripts/vertical_slice/main.py` — ループ本体（`run_vertical_slice` / `run_step`）。1ステップ内で複数ターンのtool-callingループを回す実装
+- 読む: `scripts/vertical_slice/runner.py`（`run_vertical_slice`、生成物の書き出し）と `scripts/vertical_slice/step_runner.py`（`run_step`、1ステップ内の複数ターンtool-callingループ）。エントリポイントの`main.py`はargparseと配線のみで、ループ本体はこの2ファイルに分かれている（詳細は[[vertical-slice-runner]]）
 - 読む: `scripts/vertical_slice/tools.py` — AIに渡すtool定義（`navigate`/`click`/`fill`/`press`/`select`/`check`/`uncheck`/`hover`/`finish_step`）
 - 読む: `scripts/vertical_slice/prompts.py` — system/developerプロンプトの構成
 - 読む: `scripts/stories/search-demo.yaml` — ステップ分割のYAML定義の実例
@@ -29,7 +29,10 @@
 ## 触るファイル
 
 ### 新規（実装済み）
-- `scripts/vertical_slice/main.py` — ループ本体・エントリポイント
+- `scripts/vertical_slice/main.py` — CLIエントリポイント（argparse・配線のみ）
+- `scripts/vertical_slice/runner.py` — ストーリー全体のオーケストレーションと生成物の書き出し
+- `scripts/vertical_slice/step_runner.py` — 1ステップ分の多ターンtool-callingループ
+- `scripts/vertical_slice/step_log.py` — `<out>.steps.jsonl`の直列化・追記
 - `scripts/vertical_slice/cli_executor.py` — playwright-cliをsubprocessで叩く薄いラッパー
 - `scripts/vertical_slice/tools.py` — Responses APIに渡すtool（JSON Schema）定義
 - `scripts/vertical_slice/prompts.py` — system/developerプロンプトのテンプレート

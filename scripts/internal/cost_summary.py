@@ -2,8 +2,8 @@
 
     python -m scripts.internal.cost_summary tests/generated/search-demo.spec.steps.jsonl
 
-Reads the `usage` (and `model`) field main.py's append_step_log writes on every
-turn (see [[vertical-slice-runner]]) and sums input/output/cached/reasoning
+Reads the `usage` (and `model`) field step_log.py's append_step_log writes on
+every turn (see [[vertical-slice-runner]]) and sums input/output/cached/reasoning
 tokens, both overall and per step. Per-token prices come from
 `model_pricing.csv` in this same directory, keyed by model name; a model with
 no matching row falls back to the `default` row in that file.

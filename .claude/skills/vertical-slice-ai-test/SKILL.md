@@ -29,7 +29,7 @@ python -m scripts.vertical_slice.main \
 
 ## 落とし穴: `--out` は必ず `.spec.ts` で終わらせる
 
-`main.py` の `write_spec_file` は `--out` に渡されたパスへ**そのまま**書き込む（拡張子チェックなし）。生成後に自動実行される `npx playwright test <out_path>` は、渡されたパスを `playwright.config.ts` の `testMatch` パターン（デフォルトは `*.spec.ts` 系）でテストファイルとして認識できて初めて実行できる。
+`runner.py` の `write_spec_file` は `--out` に渡されたパスへ**そのまま**書き込む（拡張子チェックなし）。生成後に自動実行される `npx playwright test <out_path>` は、渡されたパスを `playwright.config.ts` の `testMatch` パターン（デフォルトは `*.spec.ts` 系）でテストファイルとして認識できて初めて実行できる。
 
 `--out tests/generated/custom-pages-demo`（拡張子なし）のように指定すると:
 - AIパイプライン自体は全ステップ完走し、`tests/generated/custom-pages-demo` に生成コードは書き出される
