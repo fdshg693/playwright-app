@@ -1,0 +1,23 @@
+name: wizard demo
+intent: >
+  wizard-step1→wizard-step2→wizard-confirmという3ページ連続・後戻りなしのフルページロード
+  遷移を最初から最後まで通し、既存story（playwright.devやindex⇄search⇄formの行き来）より
+  長い連続ロード列でvertical sliceのコアループが完走するかを確認する。
+seed_url: "http://localhost:8080/wizard-step1.html"
+steps:
+  - id: 1
+    instruction: お名前欄に「山田太郎」と入力する
+  - id: 2
+    instruction: メールアドレス欄に「taro.yamada@example.com」と入力する
+  - id: 3
+    instruction: 次へボタンをクリックする
+  - id: 4
+    instruction: 郵便番号欄に「100-0001」と入力する
+  - id: 5
+    instruction: ご住所欄に「東京都千代田区千代田1-1」と入力する
+  - id: 6
+    instruction: 次へボタンをクリックする
+  - id: 7
+    instruction: 送信するボタンをクリックする
+  - id: 8
+    instruction: 送信完了メッセージが表示されていることを確認する（画面操作は不要、確認のみ）

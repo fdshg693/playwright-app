@@ -41,7 +41,7 @@
 - `scripts/stories/navigate-direct-demo.yaml` / `search-empty-demo.yaml`（Step2）
 - `scripts/stories/advanced-form-demo.yaml`（Step3）
 - `scripts/stories/wizard-demo.yaml` / `wizard-demo-branch.yaml`（Step4）
-- `scripts/stories/edge-disabled-button-demo.yaml` / `edge-range-input-demo.yaml` / `edge-ambiguous-locator-demo.yaml` / `edge-unsupported-action-demo.yaml`（Step5）
+- `scripts/stories/edge-disabled-button-demo.yaml` / `edge-range-input-demo.yaml` / `edge-ambiguous-locator-demo.yaml` / `edge-unsupported-action-demo.yaml` / `edge-unsupported-drag-demo.yaml`（Step5、(4)は決定事項通りアップロード/ドラッグで2ファイルに分離）
 
 ### 変更
 - `scripts/vertical_slice/story.py` — `intent`必須フィールド追加（Step1、実装・実行済み）
@@ -63,4 +63,4 @@
 - `npm run serve:pages` で新規ページ（`edge-cases.html`含む）・拡張後の`form.html`が全てブラウザで正しく表示される。
 - `advanced-form-demo.yaml` / `wizard-demo.yaml` / `search-empty-demo.yaml` / `navigate-direct-demo.yaml` を対象に `scripts/vertical_slice/main.py` を実行し、全ステップが`done`で完走する（実AI APIコールを伴うため、実行前に`vertical-slice-ai-test`スキルの方針に従いユーザーへ確認する）。
 - `wizard-demo-branch.yaml` が `wizard-demo.yaml` 実行で得た `.tasks.jsonl` から `resume` により正しく分岐実行できる。
-- `edge-*.yaml` の4本はいずれも`blocked`または明示的なCLIエラーで停止し、その`failure-notes.json`・エラーメッセージがStep6着手時の参考資料として残る。
+- `edge-*.yaml` の5本（アップロード/ドラッグを分離したため4パターン5ファイル）はいずれも`blocked`または明示的なCLIエラーで停止し、その`failure-notes.json`・エラーメッセージがStep6着手時の参考資料として残る。

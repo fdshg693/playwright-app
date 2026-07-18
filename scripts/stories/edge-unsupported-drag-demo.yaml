@@ -1,0 +1,10 @@
+name: edge unsupported drag demo
+intent: >
+  Step6着手前のベースライン記録として、現状のtools.pyにドラッグ操作用ツールが存在しない状況で
+  リストの並び替え（ドラッグ操作）を指示した場合に、AIがfinish_step(status="blocked")を
+  返さざるを得ないことを確認する。ファイルアップロード（別の未対応操作）は原因の切り分けのため
+  edge-unsupported-action-demo.yamlに分離する。"pass"を目指すシナリオではない。
+seed_url: "http://localhost:8080/edge-cases.html"
+steps:
+  - id: 1
+    instruction: リストの1番目の項目をドラッグして2番目の位置に並び替える

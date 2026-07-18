@@ -1,0 +1,10 @@
+name: edge ambiguous locator demo
+intent: >
+  Step6着手前のベースライン記録として、同一アクセシブルネーム「詳細」を持つ複数ボタンのうち
+  どちらを指すか特定できない曖昧な指示を与えた場合に、role-basedロケータの一意性前提が崩れて
+  AIがどう振る舞うか（blockedと判断するか、誤ってどちらか一方を選んでしまうか）を確認する。
+  "pass"を目指すシナリオではなく、正常に失敗する（blockedになる）ことが期待結果。
+seed_url: "http://localhost:8080/edge-cases.html"
+steps:
+  - id: 1
+    instruction: 詳細ボタンをクリックする

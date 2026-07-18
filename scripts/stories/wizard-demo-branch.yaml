@@ -1,0 +1,12 @@
+name: wizard-demo-branch
+intent: >
+  wizard-demo.yaml実行時の記録（.tasks.jsonl）からwizard-confirmページ到達直後（3ページ連続の
+  フルページロードを経た地点）までのタスクを復元し、そこから「送信せず確認画面の内容を確認する
+  だけ」という別の完了条件に分岐できるか（Step5のresume/分岐実行を、より長い連鎖でも
+  正しくreplayできるか）を確認する。
+# seed_url is unused for a resume run: replayed via `run-code`, not navigated to.
+# Kept only because Story requires it. See .claude/plan/main/05-recording-and-resume.md
+seed_url: "http://localhost:8080/wizard-step1.html"
+steps:
+  - id: 7
+    instruction: 送信するボタンはクリックせず、確認画面の見出しが表示されていることを確認する（画面操作は不要、確認のみ）

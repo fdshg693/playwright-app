@@ -29,7 +29,7 @@
 - `scripts/stories/edge-disabled-button-demo.yaml` — 無効化ボタンをクリックさせる指示のみの短いシナリオ
 - `scripts/stories/edge-range-input-demo.yaml` — range inputへ特定の値を入力させる指示のみの短いシナリオ
 - `scripts/stories/edge-ambiguous-locator-demo.yaml` — 「詳細ボタンをクリックする」のように、どちらの「詳細」ボタンか特定できない曖昧な指示のみの短いシナリオ
-- `scripts/stories/edge-unsupported-action-demo.yaml` — ファイルをアップロードする指示、またはリスト項目をドラッグして並び替える指示（どちらも現状tool無し）のみの短いシナリオ
+- `scripts/stories/edge-unsupported-action-demo.yaml`（ファイルをアップロードする指示） / `scripts/stories/edge-unsupported-drag-demo.yaml`（リスト項目をドラッグして並び替える指示）— どちらも現状tool無しのみの短いシナリオ。直下の決定事項（(4)は別々のYAMLに分ける）通り2ファイルに分離
 
 ### 変更
 - `.claude/rules/custom-pages.md` — `edge-cases.html`の規約例外を追記
@@ -42,7 +42,22 @@
 | `edge-cases.html`は「role-basedロケータで一意に拾える要素のみを使う」という既存規約（[[custom-pages]]）に(3)のケースで意図的に違反する | 規約の欠陥ではなく、規約を守れないケースで何が起きるかを確認する専用フィクスチャであるため。`custom-pages.md`にこのページを名指しした例外規定を追記して、規約違反が意図的であることを明示する |
 | これら4シナリオは「正常に失敗する（`blocked`またはCLIエラーで止まる）」こと自体が期待結果であり、"pass"を目指さない。CI等の自動実行対象には含めない | Step6着手前の現状把握・フィクスチャ整備が目的であり、既存の`search-demo.yaml`実行時点で既に`blocked`で止まっている前例（`search-demo.spec.failure-notes.json`）と同じ扱いにする |
 | (2)のrange inputは、`fill`失敗時にplaywright-cli側のコマンドが例外を返すのか`### Error`検知で`CliError`になるのかを実機で確認してから正確な期待結果を記載する。プラン段階では「非対応であることを確認する」までに留め断定しない | 未確認の外部挙動（playwright-cliの`fill`コマンド内部実装）に依存するため、[[custom_pages/02-local-hosting]]の`--raw`位置確認と同じ要領で実装時に実機確認が必要 |
+| **実装時の実機確認の結果、(2)の当初想定は誤りだった。** `playwright-cli fill`は`<input type="range">`に対し、`min`〜`max`範囲内の数値であれば実際には成功する（`el.value`が更新される）。`### Error`（`Error: Malformed value`）になるのは範囲外の値（例: `max=100`に対し`150`）または非数値を渡した場合のみ。`edge-range-input-demo.yaml`はこの実機確認結果を反映し、範囲外の値（150）をfillさせる指示に変更した | 「非対応input type」という当初の前提が実際のPlaywright挙動と異なっていたため。断定を避け実機確認してから記載する、という本ファイルの決定（直上の行）通りの手順で発覚した |
 | (4)は「ファイルをアップロードする」と「リストをドラッグして並び替える」を別々のYAMLに分ける | 1つのシナリオに混ぜると、どちらの機能欠如が原因で`blocked`になったか切り分けられなくなるため |
+
+## 実行結果（Step6着手前のベースライン記録、実行日 2026-07-19）
+
+`scripts.vertical_slice.main`に対しMiniMax-M3で実際に実行した結果。いずれも意図通り"pass"せずに停止した。
+
+| story | 結果 | 実際の停止理由 |
+|---|---|---|
+| `edge-disabled-button-demo.yaml` | `blocked` | AIはsnapshot上の`[disabled]`表示を見てクリックを試みる前に`finish_step(status="blocked")`を返した。CLI呼び出し自体は発生しなかった |
+| `edge-range-input-demo.yaml` | `cli_error` | `fill(ref, "150")`が`### Error: Error: Malformed value`でCliErrorになった（範囲外の値。前掲の実機確認結果通り） |
+| `edge-ambiguous-locator-demo.yaml` | `blocked` | AIは「詳細」ボタンが2つ（商品A/商品B）存在し指示だけでは一意に特定できないと判断し、当て推量で片方をクリックせず`blocked`を返した |
+| `edge-unsupported-action-demo.yaml`（アップロード） | **未捕捉のPython例外でクラッシュ（想定外）** | AIが`click`ツールで添付ファイル欄（file input）をクリックし、playwright-cliが`Modal state: [File chooser]`に遷移。直後の`snapshot --json`が`{"isError": true, "error": "...does not handle the modal state."}`という通常と異なるJSON形状を返し、`CliExecutor.snapshot_text()`の`json.loads(out)["snapshot"]`が`KeyError: 'snapshot'`で例外送出、プロセスがtracebackとともに異常終了した。`.spec.ts`・`.failure-notes.json`は生成されず、`.tasks.jsonl`にはseedブロックのみ残る |
+| `edge-unsupported-drag-demo.yaml` | `cli_error` | AIはドラッグ用ツールが無いため`hover`を2回試みた後、画面が変わったと誤認し存在しない`file:///home/user/sortable.html`へ`navigate`しようとして`Error: Access to "file:" protocol is blocked`でCliErrorになった |
+
+**Step6スコープへの示唆**: (4)アップロードのケースは当初想定していた「AIが素直にblockedを返す」よりも重大な発見で、`CliExecutor.snapshot_text()`がplaywright-cliの`isError`付きJSON（モーダル状態時など`### Error`マーカー方式と異なる応答形状）を想定しておらず、`CliError`として捕捉されない生のPython例外でパイプライン全体がクラッシュする。Step6のリトライ・診断情報提示ロジックは、`CliError`だけでなく`snapshot_text`/`generate_locator`等の他のCLI呼び出しが返しうる非`### Error`形式の異常応答（`isError`キー等）も捕捉対象にする必要がある。本ステップでは`新しいPythonロジックは追加しない`というスコープ制約に従い、挙動の記録のみに留め修正はしていない。
 
 ## `.claude/rules` 更新ポイント
 

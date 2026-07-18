@@ -1,0 +1,9 @@
+name: edge disabled button demo
+intent: >
+  Step6着手前のベースライン記録として、無効化(disabled)されたボタンをクリックさせた場合に
+  現状のvertical sliceがどう振る舞うか（AIがblockedと判断するか、CLI呼び出し自体がエラーに
+  なるか）を確認する。"pass"を目指すシナリオではなく、正常に失敗すること自体が期待結果。
+seed_url: "http://localhost:8080/edge-cases.html"
+steps:
+  - id: 1
+    instruction: 送信するボタンをクリックする

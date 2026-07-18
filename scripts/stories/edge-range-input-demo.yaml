@@ -1,0 +1,11 @@
+name: edge range input demo
+intent: >
+  Step6着手前のベースライン記録として、<input type="range">へfillを試みた場合の挙動を確認する。
+  実機確認の結果、playwright-cliのfillはmin〜max範囲内の数値であれば実際にはrange inputへの
+  設定に成功してしまう（既存の想定=非対応、は誤りだった）ため、範囲外の値（min=0/max=100に対し
+  150）を指定し、"Error: Malformed value"でCliErrorになることを確認する。"pass"を目指す
+  シナリオではなく、正常に失敗すること自体が期待結果。
+seed_url: "http://localhost:8080/edge-cases.html"
+steps:
+  - id: 1
+    instruction: 音量の入力欄に150と入力する

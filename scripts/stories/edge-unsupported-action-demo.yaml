@@ -1,0 +1,10 @@
+name: edge unsupported action demo (upload)
+intent: >
+  Step6着手前のベースライン記録として、現状のtools.pyにファイルアップロード用ツールが
+  存在しない状況でファイルアップロードを指示した場合に、AIがfinish_step(status="blocked")を
+  返さざるを得ないことを確認する。ドラッグ操作（別の未対応操作）は原因の切り分けのため
+  edge-unsupported-drag-demo.yamlに分離する。"pass"を目指すシナリオではない。
+seed_url: "http://localhost:8080/edge-cases.html"
+steps:
+  - id: 1
+    instruction: 添付ファイル欄からファイルをアップロードする
