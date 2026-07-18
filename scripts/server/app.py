@@ -27,6 +27,7 @@ from .schemas import (
     SnapshotResponse,
     StartSessionRequest,
     StartSessionResponse,
+    StopResponse,
 )
 from .session_manager import SessionManager, SessionNotFoundError
 
@@ -87,7 +88,13 @@ def run_session(session_id: str) -> RunResponse:
 
     out_path = f"tests/generated/{story.name}.spec.ts"
     passed, spec_path, failure_notes, run_id = orchestrator.run_story(
-        cli, _get_client(), config.get_model(), story, out_path, seed_code=sessions.get_seed_code(session_id)
+        cli,
+        _get_client(),
+        config.get_model(),
+        story,
+        out_path,
+        seed_code=sessions.get_seed_code(session_id),
+        should_stop=lambda: sessions.is_stop_requested(session_id),
     )
     return RunResponse(passed=passed, spec_path=spec_path, failure_notes=failure_notes, run_id=run_id)
 
@@ -108,7 +115,14 @@ def resume_session(body: ResumeRequest) -> ResumeResponse:
     out_path = f"tests/generated/{story.name}.spec.ts"
     try:
         passed, spec_path, failure_notes, run_id = orchestrator.resume_story(
-            cli, _get_client(), config.get_model(), story, out_path, body.tasks_log, body.resume_before_step
+            cli,
+            _get_client(),
+            config.get_model(),
+            story,
+            out_path,
+            body.tasks_log,
+            body.resume_before_step,
+            should_stop=lambda: sessions.is_stop_requested(session_id),
         )
     except CliError as exc:
         sessions.close(session_id)
@@ -116,6 +130,15 @@ def resume_session(body: ResumeRequest) -> ResumeResponse:
     return ResumeResponse(
         session_id=session_id, passed=passed, spec_path=spec_path, failure_notes=failure_notes, run_id=run_id
     )
+
+
+@app.post("/sessions/{session_id}/stop")
+def stop_session(session_id: str) -> StopResponse:
+    # Sets the stop flag and returns immediately -- doesn't wait for a
+    # running /run or /sessions/resume to observe it (Step7).
+    _get_cli(session_id)  # 404s before signaling if the id is unknown
+    sessions.request_stop(session_id)
+    return StopResponse(session_id=session_id)
 
 
 @app.delete("/sessions/{session_id}", status_code=204)

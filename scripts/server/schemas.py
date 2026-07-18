@@ -51,3 +51,8 @@ class ResumeResponse(BaseModel):
     spec_path: str
     failure_notes: list[dict] = []
     run_id: str
+
+
+class StopResponse(BaseModel):
+    session_id: str
+    stop_requested: bool = True

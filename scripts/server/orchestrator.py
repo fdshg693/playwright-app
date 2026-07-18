@@ -11,6 +11,7 @@ has already navigated via `POST /sessions`' `target_url`
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
 from openai import OpenAI
 
@@ -30,6 +31,7 @@ def run_story(
     story: Story,
     out_path: str,
     seed_code: str | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[bool, str, list[dict], str]:
     """Run every step of `story` in order, then write and test the artifacts.
 
@@ -39,6 +41,11 @@ def run_story(
     from `story.steps`). Without it the assembled spec file would start
     in-place on whatever page the AI left off on, instead of navigating
     there itself, and fail the moment it's run standalone.
+
+    `should_stop` is passed straight through to `runner.run_steps()` (Step7).
+    This function doesn't know or care where it comes from -- `app.py` wires
+    it to `SessionManager.is_stop_requested`, but any zero-arg callable
+    returning bool works.
 
     Returns (passed, spec_path, failure_notes, run_id). Stops at the first
     step that produces failure_notes, same as `runner.run_vertical_slice()`.
@@ -50,7 +57,9 @@ def run_story(
         seed_block.append(StepBlock(step=None, code=[seed_code]))
         runner.log_seed_task(cli, seed_code, out_path, run_id)
 
-    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path, run_id)
+    step_blocks, failure_notes = runner.run_steps(
+        story.steps, cli, client, model, out_path, run_id, should_stop=should_stop
+    )
     passed, spec_path = runner.write_and_test(seed_block + step_blocks, failure_notes, out_path, story.name)
     return passed, str(spec_path), failure_notes, run_id
 
@@ -63,12 +72,16 @@ def resume_story(
     out_path: str,
     tasks_log_path: str,
     resume_before_step: int,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[bool, str, list[dict], str]:
     """Server-side counterpart of `runner.resume_vertical_slice`: fast-forwards
     `cli` (a fresh session from `SessionManager.create()`, which never
     navigates) using the code recorded in `tasks_log_path`, then runs
     `story.steps` in order from there. See `runner.build_resume_state` for
     the replay logic shared with the CLI entry point.
+
+    `should_stop` is passed straight through to `runner.run_steps()`, same as
+    `run_story` above.
     """
     replay_source, prior_blocks = runner.build_resume_state(tasks_log_path, resume_before_step)
 
@@ -78,6 +91,8 @@ def resume_story(
 
     run_id = new_run_id()
 
-    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path, run_id)
+    step_blocks, failure_notes = runner.run_steps(
+        story.steps, cli, client, model, out_path, run_id, should_stop=should_stop
+    )
     passed, spec_path = runner.write_and_test(prior_blocks + step_blocks, failure_notes, out_path, story.name)
     return passed, str(spec_path), failure_notes, run_id

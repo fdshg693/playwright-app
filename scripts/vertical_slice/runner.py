@@ -10,6 +10,7 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from openai import OpenAI
 
@@ -37,6 +38,7 @@ FAILURE_REASON_HINTS: dict[str, str] = {
     "blocked": "The model itself called finish_step(status=\"blocked\"), declaring it could not complete the step.",
     "no_tool_call": "The model's response contained no tool call even though a tool call was required.",
     "max_turns_exceeded": "The step reached MAX_TURNS_PER_STEP turns without the model calling finish_step.",
+    "stopped": "The run was stopped via an external stop request before this step started.",
 }
 
 
@@ -154,6 +156,7 @@ def run_task_logged_step(
     remaining_steps: list[Step],
     out_path: str,
     run_id: str,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[list[str], list[dict]]:
     """Runs one step via `step_runner.run_step`, retrying up to
     `MAX_STEP_ATTEMPTS` fresh attempts (Step6) before giving up, wrapped with
@@ -169,6 +172,14 @@ def run_task_logged_step(
     order into a single `<out>.tasks.jsonl` entry -- browser state is never
     rolled back between attempts, so an earlier attempt's code is still part
     of what actually happened to the session.
+
+    `should_stop` (Step7), if given, is checked right after a failed attempt
+    -- if it's now true, the remaining retry attempts are skipped instead of
+    being spent. This step already ran (and failed), so it's not "untouched"
+    the way a step run_steps() never got to is: the failure's `reason` stays
+    whatever run_step actually reported (cli_error/blocked/etc.), and each
+    note in step_failures gets a `"stopped": true` field instead of a
+    `reason` override, so the real failure cause isn't lost.
     """
     recordings = task_log.recordings_dir(out_path)
     recordings.mkdir(parents=True, exist_ok=True)
@@ -180,6 +191,7 @@ def run_task_logged_step(
 
     all_code: list[str] = []
     step_failures: list[dict] = []
+    stopped_mid_retry = False
     attempt = 0
     for attempt in range(1, MAX_STEP_ATTEMPTS + 1):
         step_code, step_failures = run_step(
@@ -187,6 +199,9 @@ def run_task_logged_step(
         )
         all_code.extend(step_code)
         if not step_failures:
+            break
+        elif should_stop and should_stop():
+            stopped_mid_retry = True
             break
 
     after_snapshot = _capture_or_placeholder(cli.snapshot_text, "snapshot")
@@ -208,6 +223,7 @@ def run_task_logged_step(
             note["hint"] = FAILURE_REASON_HINTS.get(note.get("reason"), "unknown reason")
             note["attempt"] = attempt
             note["max_attempts"] = MAX_STEP_ATTEMPTS
+            note["stopped"] = stopped_mid_retry
 
     task_log.append_task_log(
         {
@@ -228,19 +244,38 @@ def run_task_logged_step(
 
 
 def run_steps(
-    story_steps: list[Step], cli: CliExecutor, client: OpenAI, model: str, out_path: str, run_id: str
+    story_steps: list[Step],
+    cli: CliExecutor,
+    client: OpenAI,
+    model: str,
+    out_path: str,
+    run_id: str,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[list[StepBlock], list[dict]]:
     """Runs `story_steps` in order, stopping at the first step that produces
     failure_notes. Shared by run_vertical_slice/resume_vertical_slice here
     and orchestrator.run_story/resume_story, so all four entry points record
     and assemble tasks identically.
+
+    `should_stop` (Step7), if given, is checked at the top of each iteration
+    -- before that step is touched at all -- and is also passed through to
+    `run_task_logged_step` for the finer-grained retry-boundary check. If it
+    reports true here, the step is left entirely unattempted: a single
+    `reason: "stopped"` failure_note is appended for it (no
+    `run_task_logged_step` call, so no `<out>.tasks.jsonl` entry either) and
+    the loop breaks, same shape as any other stop-at-first-failure step.
     """
     blocks: list[StepBlock] = []
     failure_notes: list[dict] = []
     for i, step in enumerate(story_steps):
+        if should_stop and should_stop():
+            failure_notes.append(
+                {"step": step.id, "reason": "stopped", "hint": FAILURE_REASON_HINTS["stopped"]}
+            )
+            break
         logger.info("=== step %s: %s ===", step.id, step.instruction)
         step_code, step_failures = run_task_logged_step(
-            cli, client, model, step, story_steps[i:], out_path, run_id
+            cli, client, model, step, story_steps[i:], out_path, run_id, should_stop=should_stop
         )
         blocks.append(StepBlock(step=step, code=step_code))
         failure_notes.extend(step_failures)
