@@ -18,7 +18,7 @@ from openai import OpenAI
 
 from . import config
 from .cli_executor import CliExecutor
-from .runner import run_vertical_slice
+from .runner import resume_vertical_slice, run_vertical_slice
 from .story import load_story
 
 
@@ -34,8 +34,22 @@ def main() -> None:
         default="tests/generated/search-demo.spec.ts",
         help="path to write the generated .spec.ts file",
     )
+    parser.add_argument(
+        "--resume-tasks-log",
+        default=None,
+        help="path to a <out>.tasks.jsonl to replay before running --story's own steps",
+    )
+    parser.add_argument(
+        "--resume-before-step",
+        type=int,
+        default=None,
+        help="replay tasks with step_id < this value (required with --resume-tasks-log)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
+
+    if args.resume_tasks_log and args.resume_before_step is None:
+        parser.error("--resume-before-step is required when --resume-tasks-log is set")
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -48,7 +62,12 @@ def main() -> None:
     cli = CliExecutor(session=args.session)
 
     try:
-        passed = run_vertical_slice(story, cli, client, model, args.out)
+        if args.resume_tasks_log:
+            passed = resume_vertical_slice(
+                story, cli, client, model, args.out, args.resume_tasks_log, args.resume_before_step
+            )
+        else:
+            passed = run_vertical_slice(story, cli, client, model, args.out)
     finally:
         cli.close()
 

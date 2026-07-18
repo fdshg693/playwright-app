@@ -1,0 +1,10 @@
+name: search-demo-branch
+# seed_url is unused for a resume run: resume fast-forwards a bare
+# `cli.open()` session via replayed `run-code` instead of navigating here
+# (plan/main/05-recording-and-resume.md). Kept only because Story requires it.
+seed_url: "https://playwright.dev"
+steps:
+  - id: 4
+    instruction: 検索結果の最初の項目をクリックする
+  - id: 5
+    instruction: 遷移先のページで、内容に関連しそうな見出しやテキストが表示されていることを確認する（画面操作は不要、確認のみ）

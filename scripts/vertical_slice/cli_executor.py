@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 
 class CliError(RuntimeError):
@@ -64,8 +65,10 @@ class CliExecutor:
         code = match.group(1).strip() if match else None
         return ActionResult(generated_code=code, raw_output=out)
 
-    def open(self, url: str) -> ActionResult:
-        return self.execute("open", [url])
+    def open(self, url: str | None = None) -> ActionResult:
+        # No url: opens a blank browser/page (used by resume, which
+        # fast-forwards via run_code instead of navigating directly).
+        return self.execute("open", [url] if url else [])
 
     def snapshot_text(self) -> str:
         # snapshot --json is the one command whose --json output inlines the
@@ -85,6 +88,19 @@ class CliExecutor:
             args.append(ref)
         args.append("--raw")
         return self._run(args).strip()
+
+    def screenshot(self, path: str) -> str:
+        # `--filename=` resolves relative to this process's cwd (confirmed by
+        # hand: it's neither the playwright-cli daemon's cwd nor
+        # session-specific), same as `out_path` elsewhere in this package --
+        # but unlike a plain file write, playwright-cli does not create
+        # missing parent directories itself and errors with ENOENT.
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.execute("screenshot", [f"--filename={path}"])
+        return path
+
+    def run_code(self, source: str) -> ActionResult:
+        return self.execute("run-code", [source])
 
     def close(self) -> None:
         try:

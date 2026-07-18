@@ -14,10 +14,10 @@ import logging
 
 from openai import OpenAI
 
+from scripts.vertical_slice import runner, task_log
 from scripts.vertical_slice.cli_executor import CliExecutor
-from scripts.vertical_slice.runner import StepBlock, run_playwright_test, write_failure_notes, write_spec_file
+from scripts.vertical_slice.runner import StepBlock
 from scripts.vertical_slice.step_log import step_log_path
-from scripts.vertical_slice.step_runner import run_step
 from scripts.vertical_slice.story import Story
 
 logger = logging.getLogger("session_server")
@@ -43,30 +43,43 @@ def run_story(
     Returns (passed, spec_path, failure_notes). Stops at the first step that
     produces failure_notes, same as `runner.run_vertical_slice()`.
     """
-    blocks: list[StepBlock] = []
-    failure_notes: list[dict] = []
     step_log_path(out_path).unlink(missing_ok=True)
+    task_log.task_log_path(out_path).unlink(missing_ok=True)
 
+    seed_block: list[StepBlock] = []
     if seed_code:
-        blocks.append(StepBlock(step=None, code=[seed_code]))
+        seed_block.append(StepBlock(step=None, code=[seed_code]))
+        runner.log_seed_task(cli, seed_code, out_path)
 
-    for i, step in enumerate(story.steps):
-        logger.info("=== step %s: %s ===", step.id, step.instruction)
-        step_code, step_failures = run_step(cli, client, model, step, story.steps[i:], out_path)
-        blocks.append(StepBlock(step=step, code=step_code))
-        failure_notes.extend(step_failures)
-        if step_failures:
-            break
-    else:
-        logger.info("all steps completed")
+    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path)
+    passed, spec_path = runner.write_and_test(seed_block + step_blocks, failure_notes, out_path, story.name)
+    return passed, str(spec_path), failure_notes
 
-    spec_path = write_spec_file(blocks, out_path, story.name)
-    write_failure_notes(failure_notes, out_path)
 
-    if failure_notes:
-        logger.warning("stopped early with failure notes; skipping npx playwright test")
-        return False, str(spec_path), failure_notes
+def resume_story(
+    cli: CliExecutor,
+    client: OpenAI,
+    model: str,
+    story: Story,
+    out_path: str,
+    tasks_log_path: str,
+    resume_before_step: int,
+) -> tuple[bool, str, list[dict]]:
+    """Server-side counterpart of `runner.resume_vertical_slice`: fast-forwards
+    `cli` (a fresh session from `SessionManager.create()`, which never
+    navigates) using the code recorded in `tasks_log_path`, then runs
+    `story.steps` in order from there. See `runner.build_resume_state` for
+    the replay logic shared with the CLI entry point.
+    """
+    replay_source, prior_blocks = runner.build_resume_state(tasks_log_path, resume_before_step)
 
-    passed = run_playwright_test(spec_path)
-    logger.info("npx playwright test %s", "passed" if passed else "failed")
+    cli.open()
+    if replay_source:
+        cli.run_code(replay_source)
+
+    step_log_path(out_path).unlink(missing_ok=True)
+    task_log.task_log_path(out_path).unlink(missing_ok=True)
+
+    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path)
+    passed, spec_path = runner.write_and_test(prior_blocks + step_blocks, failure_notes, out_path, story.name)
     return passed, str(spec_path), failure_notes

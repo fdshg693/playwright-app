@@ -36,3 +36,16 @@ class RunResponse(BaseModel):
     passed: bool
     spec_path: str
     failure_notes: list[dict] = []
+
+
+class ResumeRequest(BaseModel):
+    tasks_log: str
+    resume_before_step: int
+    story: str
+
+
+class ResumeResponse(BaseModel):
+    session_id: str
+    passed: bool
+    spec_path: str
+    failure_notes: list[dict] = []

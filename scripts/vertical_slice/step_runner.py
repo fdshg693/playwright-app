@@ -161,7 +161,13 @@ def run_step(
                 # since accessibility-tree snapshots can run tens of KB.
                 "snapshot": truncate(turn_snapshot),
                 "response_output": output_items,
-                "model": model,
+                # response.model is what actually served the request (an
+                # alias/env override in `model` may resolve to something
+                # else); requested_model keeps the original string around so
+                # the two can be compared later (cost_summary.py prices off
+                # "model").
+                "model": response.model,
+                "requested_model": model,
                 "usage": response.usage.model_dump() if response.usage else None,
                 "tool_results": tool_results,
                 "stopped": stop,

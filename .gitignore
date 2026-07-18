@@ -12,6 +12,8 @@ playwright-report/
 tests/generated/*.spec.ts
 tests/generated/*.failure-notes.json
 tests/generated/*.steps.jsonl
+tests/generated/*.tasks.jsonl
+tests/generated/*.recordings/
 
 .env
 

@@ -13,7 +13,7 @@
 2. [02-server-skeleton.md](02-server-skeleton.md) — Playwright CLIセッションを永続させるサーバーの骨組み
 3. [03-task-orchestration.md](03-task-orchestration.md) — 1タスク＝1フレッシュコンテキストのAI呼び出しオーケストレーション自動化
 4. [04-code-generation-assembly.md](04-code-generation-assembly.md) — 生成コードのテストファイルへの組み立て（`// N.`ステップコメント付与 + `add_expectation`ツールによる`expect`アサーション生成）
-5. [05-recording-and-resume.md](05-recording-and-resume.md) — 操作ログ・スクリーンショットの記録と途中再開（詳細は後に記載）
+5. [05-recording-and-resume.md](05-recording-and-resume.md) — タスク単位の操作ログ・スクリーンショットの記録（`<out>.tasks.jsonl`）と、記録済みコード列の`run-code`再実行による途中再開・分岐実行
 6. [06-failure-handling.md](06-failure-handling.md) — リトライと失敗時の診断情報つき停止（詳細は後に記載）
 7. [07-human-observation-and-control.md](07-human-observation-and-control.md) — 人間による進捗確認・強制停止（詳細は後に記載）
 8. [08-safety-guardrails.md](08-safety-guardrails.md) — 対象URL固定などの最低限の安全策（詳細は後に記載）
@@ -27,8 +27,9 @@
 | Step2でStep1の`CliExecutor`境界をFastAPIによるネットワークサーバーへ切り出す（`session_id`はplaywright-cliの`-s=`セッション名と1:1対応） | Step1の決定表どおり「Step2でこの境界をそのままネットワークサーバーへ切り出す想定」を実行するため。詳細は[[02-server-skeleton]] |
 | Step3では新しいAIループを書かず、Step1の`step_runner.run_step`（`finish_step`宣言によるステップ完了判定）をサーバーから再利用する。`POST /sessions/{id}/run`はHTTPリクエスト内で同期的に最後まで実行し、進捗ストリーミングは作らない | Step1で動作確認済みの設計に乗ることでStep3のリスクを増やさないため。進捗可視化・強制停止はStep7のスコープ。詳細は[[03-task-orchestration]] |
 | Step4は新しいAIループを追加せず、`add_expectation`という新規ツールをStep1の操作系ツール群に1つ追加するだけに留める。`finish_step`の単独ターン制御など`step_runner.run_step`のループ制御ロジックには手を入れない | 既存のターン制御を変えずに`tools.py`/`prompts.py`側の追加だけで`expect`アサーション生成を実現できるため。詳細は[[04-code-generation-assembly]] |
+| Step5の途中再開は`state-save`/`state-load`（cookie/localStorageのみ復元）ではなく、タスクごとに記録した生成コード列を新しいセッションで`playwright-cli run-code`により先頭から再実行する方式を採る。記録は既存の`<out>.steps.jsonl`（ターン単位の生ログ）とは別に新設する`<out>.tasks.jsonl`（タスク単位）に持ち、resumeの実体ロジックは`runner.py`に1箇所実装して`orchestrator.py`が再利用する | `state-save`/`state-load`はナビゲーション履歴・DOM状態を復元できずシナリオの「今どのページにいるか」を再現できないため。既存の生成コードそのものが操作記録として使えるため二重の記録機構を持たずに済む。詳細は[[05-recording-and-resume]] |
 
-Step5以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
+Step6以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
 
 ## 変更/新規ファイル一覧
 
