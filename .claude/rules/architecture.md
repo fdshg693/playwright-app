@@ -5,7 +5,7 @@ paths:
 
 ## アーキテクチャ概要
 
-このプロジェクトは「人間が自然言語で書いたテストストーリー → AIがブラウザを操作 → 再実行可能なPlaywrightテストコード」を自動生成する仕組み。全体設計は [SPEC.md](../../SPEC.md) が正、実装ロードマップは [big_plans/](../../big_plans/)（WHAT・順序）と [.claude/plan/main/](../plan/main/)（HOW・実装詳細、`.claude/plan/README.md` の書式に従う）に分かれている。**現状 big_plans の Step1〜7（縦の一本通し・サーバー骨組み・タスクオーケストレーション自動化・コード生成組み立て・記録/再開・失敗時リトライ・人間による確認/強制停止）まで実装済み**で、`scripts/vertical_slice/`（詳細は [[vertical-slice-runner]]）と `scripts/server/`（詳細は [[session-server]]）がそれに当たる。Step8（安全性ガードレール）のみ未実装。
+このプロジェクトは「人間が自然言語で書いたテストストーリー → AIがブラウザを操作 → 再実行可能なPlaywrightテストコード」を自動生成する仕組み。全体設計は [SPEC.md](../../SPEC.md) が正、実装ロードマップは [big_plans/](../../big_plans/)（WHAT・順序）と [.claude/plan/main/](../plan/main/)（HOW・実装詳細、`.claude/plan/README.md` の書式に従う）に分かれている。**現状 big_plans の Step1〜8（縦の一本通し・サーバー骨組み・タスクオーケストレーション自動化・コード生成組み立て・記録/再開・失敗時リトライ・人間による確認/強制停止・最低限の安全策）まで全て実装済み**で、`scripts/vertical_slice/`（詳細は [[vertical-slice-runner]]）と `scripts/server/`（詳細は [[session-server]]）がそれに当たる。Step8ではURL許可リスト（`ALLOWED_DOMAINS`）・最大同時セッション数（`MAX_CONCURRENT_SESSIONS`）・アイドルセッションタイムアウト（`IDLE_SESSION_TIMEOUT_SECONDS`）の3つのガードレールを追加した（詳細は [.claude/plan/main/08-safety-guardrails.md](../plan/main/08-safety-guardrails.md)）。
 
 ### 崩してはいけない前提（SPEC.md 2章）
 

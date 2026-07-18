@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException
 from openai import OpenAI
 
 from scripts.vertical_slice import config
-from scripts.vertical_slice.cli_executor import CliError
+from scripts.vertical_slice.cli_executor import CliError, DisallowedNavigationError
 
 from . import orchestrator
 from .schemas import (
@@ -29,10 +29,14 @@ from .schemas import (
     StartSessionResponse,
     StopResponse,
 )
-from .session_manager import SessionManager, SessionNotFoundError
+from .session_manager import SessionLimitExceededError, SessionManager, SessionNotFoundError
 
 app = FastAPI(title="playwright-app session server")
-sessions = SessionManager()
+sessions = SessionManager(
+    max_sessions=config.get_max_sessions(),
+    idle_timeout_seconds=config.get_idle_timeout_seconds(),
+    allowed_domains=config.get_allowed_domains(),
+)
 
 # Lazy singleton: config.get_api_key() raises if OPENAI_API_KEY is unset, so
 # building this at import time would make AI-free endpoints (/snapshot,
@@ -50,9 +54,15 @@ def _get_client() -> OpenAI:
 @app.post("/sessions", status_code=201)
 def start_session(body: StartSessionRequest) -> StartSessionResponse:
     session_id = uuid.uuid4().hex
-    cli = sessions.create(session_id, story=body.story)
+    try:
+        cli = sessions.create(session_id, story=body.story)
+    except SessionLimitExceededError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
     try:
         open_result = cli.open(body.target_url)
+    except DisallowedNavigationError as exc:
+        sessions.close(session_id)
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     except CliError as exc:
         sessions.close(session_id)
         raise HTTPException(status_code=502, detail=str(exc)) from None
@@ -74,6 +84,8 @@ def run_command(session_id: str, body: CommandRequest) -> CommandResponse:
     cli = _get_cli(session_id)
     try:
         result = cli.execute(body.command, body.args)
+    except DisallowedNavigationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     except CliError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from None
     return CommandResponse(generated_code=result.generated_code, raw_output=result.raw_output)
@@ -106,7 +118,10 @@ def resume_session(body: ResumeRequest) -> ResumeResponse:
     # (plan/main/05-recording-and-resume.md), same as a fresh CliExecutor
     # never having called open() until resume_story does.
     session_id = uuid.uuid4().hex
-    cli = sessions.create(session_id, story=body.story)
+    try:
+        cli = sessions.create(session_id, story=body.story)
+    except SessionLimitExceededError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
     story = sessions.get_story(session_id)
     if story is None:
         sessions.close(session_id)
@@ -124,6 +139,9 @@ def resume_session(body: ResumeRequest) -> ResumeResponse:
             body.resume_before_step,
             should_stop=lambda: sessions.is_stop_requested(session_id),
         )
+    except DisallowedNavigationError as exc:
+        sessions.close(session_id)
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     except CliError as exc:
         sessions.close(session_id)
         raise HTTPException(status_code=502, detail=str(exc)) from None

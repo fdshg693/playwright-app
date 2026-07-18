@@ -39,6 +39,7 @@ FAILURE_REASON_HINTS: dict[str, str] = {
     "no_tool_call": "The model's response contained no tool call even though a tool call was required.",
     "max_turns_exceeded": "The step reached MAX_TURNS_PER_STEP turns without the model calling finish_step.",
     "stopped": "The run was stopped via an external stop request before this step started.",
+    "disallowed_url": "A tool call navigated to a host not in ALLOWED_DOMAINS (DisallowedNavigationError).",
 }
 
 
@@ -199,6 +200,13 @@ def run_task_logged_step(
         )
         all_code.extend(step_code)
         if not step_failures:
+            break
+        elif any(note.get("reason") == "disallowed_url" for note in step_failures):
+            # Retrying after a disallowed navigation would just let the model
+            # keep issuing tool calls against a host it's not allowed to
+            # touch, which contradicts the "stop immediately" intent of the
+            # URL allowlist -- burn no further attempts (plan/main/
+            # 08-safety-guardrails.md decision table).
             break
         elif should_stop and should_stop():
             stopped_mid_retry = True

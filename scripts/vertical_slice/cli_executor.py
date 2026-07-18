@@ -15,10 +15,21 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class CliError(RuntimeError):
     """Raised when playwright-cli reports a failed action."""
+
+
+class DisallowedNavigationError(CliError):
+    """Raised when execute() observes a post-command Page URL whose host is
+    not in the configured allowlist (plan/main/08-safety-guardrails.md). A
+    CliError subclass so every existing `except CliError` (step_runner.py,
+    app.py) keeps catching it unchanged; call sites that need to react
+    differently add a more specific `except DisallowedNavigationError`
+    before it.
+    """
 
 
 @dataclass
@@ -29,11 +40,27 @@ class ActionResult:
 
 _CODE_BLOCK_RE = re.compile(r"### Ran Playwright code\n```(?:js)?\n(.*?)\n```", re.DOTALL)
 
+# Matches the "- Page URL: <url>" line playwright-cli emits in the "### Page"
+# section after *every* command (see .claude/skills/playwright-cli/SKILL.md
+# "Snapshots" section). Multiline so `re.search` can find it anywhere in stdout.
+_PAGE_URL_RE = re.compile(r"^- Page URL: (\S+)$", re.MULTILINE)
+
 
 def _resolve_base_command() -> list[str]:
     if shutil.which("playwright-cli"):
         return ["playwright-cli"]
     return ["npx", "--no-install", "playwright", "cli"]
+
+
+def _host_allowed(host: str, allowed_domains: list[str]) -> bool:
+    """host is already lowercased/port-stripped (urlparse(...).hostname)."""
+    for entry in allowed_domains:
+        if entry.startswith("*."):
+            if host.endswith("." + entry[2:]):
+                return True
+        elif host == entry:
+            return True
+    return False
 
 
 class CliExecutor:
@@ -44,9 +71,15 @@ class CliExecutor:
     code alone -- every call's stdout is inspected for that marker.
     """
 
-    def __init__(self, session: str, base_command: list[str] | None = None):
+    def __init__(
+        self,
+        session: str,
+        base_command: list[str] | None = None,
+        allowed_domains: list[str] | None = None,
+    ):
         self.session = session
         self.base_command = base_command or _resolve_base_command()
+        self._allowed_domains = allowed_domains
 
     def _run(self, args: list[str]) -> str:
         cmd = [*self.base_command, f"-s={self.session}", *args]
@@ -61,6 +94,18 @@ class CliExecutor:
         out = self._run([command, *args])
         if "### Error" in out:
             raise CliError(out.split("### Error", 1)[1].strip())
+
+        if self._allowed_domains is not None:
+            url_match = _PAGE_URL_RE.search(out)
+            if url_match:
+                url = url_match.group(1)
+                if url and url != "about:blank":
+                    host = (urlparse(url).hostname or "").lower()
+                    if host and not _host_allowed(host, self._allowed_domains):
+                        raise DisallowedNavigationError(
+                            f"navigation to disallowed host {host!r} (url={url!r}) blocked by ALLOWED_DOMAINS"
+                        )
+
         match = _CODE_BLOCK_RE.search(out)
         code = match.group(1).strip() if match else None
         return ActionResult(generated_code=code, raw_output=out)

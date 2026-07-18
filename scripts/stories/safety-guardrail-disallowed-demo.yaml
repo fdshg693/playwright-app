@@ -1,0 +1,10 @@
+name: safety-guardrail-disallowed-demo
+intent: >
+  Step8の安全性ガードレール（URL許可リスト）が、AI駆動パス（navigateツール呼び出し）で
+  発生した許可リスト外への遷移を reason: "disallowed_url" として failure_notes に記録し、
+  即座に停止（リトライを消費しない）することを確認する軽量シナリオ。
+  ALLOWED_DOMAINS=localhost を設定した状態で実行することが前提。
+seed_url: "http://localhost:8080/index.html"
+steps:
+  - id: 1
+    instruction: navigateツールを使って https://example.com/ へ直接アクセスする

@@ -14,7 +14,7 @@ import logging
 from openai import OpenAI
 
 from . import prompts, tools
-from .cli_executor import CliError, CliExecutor
+from .cli_executor import CliError, CliExecutor, DisallowedNavigationError
 from .step_log import append_step_log, serialize_output_item, truncate
 
 logger = logging.getLogger("vertical_slice")
@@ -118,6 +118,31 @@ def run_step(
                 args = json.loads(call.arguments)
                 try:
                     result = tools.execute_tool(cli, call.name, args)
+                except DisallowedNavigationError as exc:
+                    logger.error(
+                        "step %s turn %s: %s(%s) hit a disallowed navigation: %s",
+                        step.id,
+                        turn,
+                        call.name,
+                        args,
+                        exc,
+                    )
+                    failure_notes.append(
+                        {
+                            "step": step.id,
+                            "reason": "disallowed_url",
+                            "tool": call.name,
+                            "arguments": args,
+                            "error": str(exc),
+                        }
+                    )
+                    tool_results.append({"name": call.name, "arguments": args, "error": str(exc)})
+                    input_items.append(
+                        {"type": "function_call_output", "call_id": call.call_id, "output": f"error: {exc}"}
+                    )
+                    stop = True
+                    stop_reason = "disallowed_url"
+                    break
                 except CliError as exc:
                     logger.error("step %s turn %s: %s(%s) failed: %s", step.id, turn, call.name, args, exc)
                     failure_notes.append(
