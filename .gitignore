@@ -18,3 +18,5 @@ tests/generated/*.recordings/
 .env
 
 resources/custom_pages/nginx/run/
+
+tests/generated/

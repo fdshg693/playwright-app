@@ -14,12 +14,30 @@ from pathlib import Path
 from openai import OpenAI
 
 from . import task_log
-from .cli_executor import CliExecutor
+from .cli_executor import CliError, CliExecutor
 from .run_id import new_run_id
+from .step_log import truncate
 from .step_runner import run_step
 from .story import Step, Story
 
 logger = logging.getLogger("vertical_slice")
+
+# Retry cap for a single step's attempts (Step6). Pairs with
+# step_runner.MAX_TURNS_PER_STEP, which bounds the turns *within* one
+# attempt -- this bounds how many fresh attempts run_task_logged_step makes.
+# A small hardcoded value per SPEC.md 9章 Open Question / big_plans: start
+# small, tune later, no CLI/env override yet (YAGNI).
+MAX_STEP_ATTEMPTS = 3
+
+# Machine explanations of what each step_runner.run_step failure `reason`
+# means -- not a diagnosis of *why* it happened (SPEC.md 6章 / heal.md 3.4節:
+# that judgment call is left to a human, never inferred by another AI call).
+FAILURE_REASON_HINTS: dict[str, str] = {
+    "cli_error": "A playwright-cli command reported an error (CliError) while executing a tool call.",
+    "blocked": "The model itself called finish_step(status=\"blocked\"), declaring it could not complete the step.",
+    "no_tool_call": "The model's response contained no tool call even though a tool call was required.",
+    "max_turns_exceeded": "The step reached MAX_TURNS_PER_STEP turns without the model calling finish_step.",
+}
 
 
 @dataclass
@@ -100,6 +118,34 @@ def log_seed_task(cli: CliExecutor, code: str | None, out_path: str, run_id: str
     )
 
 
+def _capture_or_placeholder(fetch, label: str) -> str:
+    """Runs `fetch` (`cli.snapshot_text`/a `cli.screenshot(...)` thunk) for the
+    before/after task-log bookkeeping, substituting a placeholder string on
+    `CliError` instead of propagating it. The browser can still be stuck in a
+    state `snapshot`/`screenshot` can't handle (e.g. an open file-chooser
+    modal) even after `run_step` has already stopped and returned
+    failure_notes for it -- this call happens unconditionally around that,
+    and must not itself crash the run.
+    """
+    try:
+        return fetch()
+    except CliError as exc:
+        return f"<{label} unavailable: {exc}>"
+
+
+def _capture_diagnostic(fetch) -> str | dict:
+    """Runs `fetch` (`cli.console`/`cli.requests`) and truncates the result
+    like the `snapshot` diagnostic. A `CliError` here is a failure of the
+    diagnostic capture itself, not of the step -- it's recorded as-is instead
+    of being raised, so it can't take down the retry/logging machinery whose
+    whole purpose is to stop and show the human what happened.
+    """
+    try:
+        return truncate(fetch())
+    except CliError as exc:
+        return {"error": str(exc)}
+
+
 def run_task_logged_step(
     cli: CliExecutor,
     client: OpenAI,
@@ -109,27 +155,66 @@ def run_task_logged_step(
     out_path: str,
     run_id: str,
 ) -> tuple[list[str], list[dict]]:
-    """Runs one step via `step_runner.run_step`, wrapped with before/after
-    snapshot+screenshot capture and a `<out>.tasks.jsonl` entry (task_log.py).
-    Kept outside `step_runner.run_step` itself so its turn-control loop stays
-    untouched (plan/main/05-recording-and-resume.md decision table).
+    """Runs one step via `step_runner.run_step`, retrying up to
+    `MAX_STEP_ATTEMPTS` fresh attempts (Step6) before giving up, wrapped with
+    before/after snapshot+screenshot capture and a `<out>.tasks.jsonl` entry
+    (task_log.py). Kept outside `step_runner.run_step` itself so its
+    turn-control loop stays untouched (plan/main/05-recording-and-resume.md
+    decision table; plan/main/06-failure-handling.md).
+
+    Before/after snapshot+screenshot are still captured exactly once each
+    (before the first attempt, after the last) regardless of how many
+    attempts run, so retrying doesn't add CLI calls beyond the attempts
+    themselves. Every attempt's generated code is kept and concatenated in
+    order into a single `<out>.tasks.jsonl` entry -- browser state is never
+    rolled back between attempts, so an earlier attempt's code is still part
+    of what actually happened to the session.
     """
     recordings = task_log.recordings_dir(out_path)
     recordings.mkdir(parents=True, exist_ok=True)
 
-    before_snapshot = cli.snapshot_text()
-    before_screenshot = cli.screenshot(str(recordings / f"{step.id}-before.png"))
+    before_snapshot = _capture_or_placeholder(cli.snapshot_text, "snapshot")
+    before_screenshot = _capture_or_placeholder(
+        lambda: cli.screenshot(str(recordings / f"{step.id}-before.png")), "screenshot"
+    )
 
-    step_code, step_failures = run_step(cli, client, model, step, remaining_steps, out_path, run_id)
+    all_code: list[str] = []
+    step_failures: list[dict] = []
+    attempt = 0
+    for attempt in range(1, MAX_STEP_ATTEMPTS + 1):
+        step_code, step_failures = run_step(
+            cli, client, model, step, remaining_steps, out_path, run_id, attempt=attempt
+        )
+        all_code.extend(step_code)
+        if not step_failures:
+            break
 
-    after_snapshot = cli.snapshot_text()
-    after_screenshot = cli.screenshot(str(recordings / f"{step.id}-after.png"))
+    after_snapshot = _capture_or_placeholder(cli.snapshot_text, "snapshot")
+    after_screenshot = _capture_or_placeholder(
+        lambda: cli.screenshot(str(recordings / f"{step.id}-after.png")), "screenshot"
+    )
+
+    if step_failures:
+        # All MAX_STEP_ATTEMPTS attempts failed (a successful attempt breaks
+        # out of the loop above) -- fetch diagnostics once, only now.
+        diagnostics = {
+            "console": _capture_diagnostic(cli.console),
+            "requests": _capture_diagnostic(cli.requests),
+            "snapshot": truncate(after_snapshot),
+            "screenshot_path": after_screenshot,
+        }
+        for note in step_failures:
+            note["diagnostics"] = diagnostics
+            note["hint"] = FAILURE_REASON_HINTS.get(note.get("reason"), "unknown reason")
+            note["attempt"] = attempt
+            note["max_attempts"] = MAX_STEP_ATTEMPTS
 
     task_log.append_task_log(
         {
             "step_id": step.id,
             "instruction": step.instruction,
-            "code": step_code,
+            "code": all_code,
+            "attempts": attempt,
             "success": not step_failures,
             "before_snapshot": before_snapshot,
             "after_snapshot": after_snapshot,
@@ -139,7 +224,7 @@ def run_task_logged_step(
         out_path,
         run_id,
     )
-    return step_code, step_failures
+    return all_code, step_failures
 
 
 def run_steps(

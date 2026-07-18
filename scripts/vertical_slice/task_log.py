@@ -7,6 +7,11 @@ diagnostic log -- reconstructing "the code a task produced" from that file
 would mean re-parsing every turn's tool_results. Here each entry already is
 one task's worth of replayable code plus its before/after snapshot and
 screenshot.
+
+Entries also carry an "attempts" field (Step6): 1 means the task's step
+succeeded on the first try, 2 or more means `runner.run_task_logged_step`
+retried before finishing -- `code` is still the concatenation of every
+attempt's generated code, in attempt order.
 """
 
 from __future__ import annotations

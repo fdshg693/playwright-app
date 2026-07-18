@@ -33,6 +33,7 @@ def run_step(
     remaining_steps: list,
     out_path: str,
     run_id: str,
+    attempt: int = 1,
 ) -> tuple[list[str], list[dict]]:
     """Run one step as a multi-turn tool-calling loop.
 
@@ -51,7 +52,13 @@ def run_step(
     generated_code: list[str] = []
     failure_notes: list[dict] = []
 
-    snapshot = cli.snapshot_text()
+    try:
+        snapshot = cli.snapshot_text()
+    except CliError as exc:
+        logger.error("step %s: initial snapshot failed: %s", step.id, exc)
+        failure_notes.append({"step": step.id, "reason": "cli_error", "tool": "snapshot", "error": str(exc)})
+        return generated_code, failure_notes
+
     input_items = prompts.build_input(remaining_steps=remaining_steps, current_step=step, snapshot=snapshot)
 
     for turn in range(1, MAX_TURNS_PER_STEP + 1):
@@ -149,12 +156,22 @@ def run_step(
                 )
 
             if not stop:
-                snapshot = cli.snapshot_text()
-                input_items.append(prompts.build_snapshot_followup(snapshot))
+                try:
+                    snapshot = cli.snapshot_text()
+                except CliError as exc:
+                    logger.error("step %s turn %s: post-action snapshot failed: %s", step.id, turn, exc)
+                    failure_notes.append(
+                        {"step": step.id, "reason": "cli_error", "tool": "snapshot", "error": str(exc)}
+                    )
+                    stop = True
+                    stop_reason = "cli_error"
+                else:
+                    input_items.append(prompts.build_snapshot_followup(snapshot))
 
         append_step_log(
             {
                 "step": step.id,
+                "attempt": attempt,
                 "turn": turn,
                 "instruction": step.instruction,
                 # snapshot is logged (not the full `input`, which just wraps this

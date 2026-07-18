@@ -74,7 +74,14 @@ class CliExecutor:
         # snapshot --json is the one command whose --json output inlines the
         # snapshot text directly, instead of only a saved-file path.
         out = self._run(["snapshot", "--json"])
-        return json.loads(out)["snapshot"]
+        data = json.loads(out)
+        if data.get("isError"):
+            # Some states (e.g. an open file-chooser modal) make snapshot
+            # return this JSON shape instead of the "### Error" text marker
+            # execute() checks for. Surface it the same way (CliError) so
+            # callers don't need a separate isError code path.
+            raise CliError(data.get("error") or "snapshot reported isError with no message")
+        return data["snapshot"]
 
     def generate_locator(self, ref: str) -> str:
         # --raw strips the "### Ran Playwright code" wrapper entirely and
@@ -101,6 +108,14 @@ class CliExecutor:
 
     def run_code(self, source: str) -> ActionResult:
         return self.execute("run-code", [source])
+
+    def console(self) -> str:
+        # --raw strips the "### Result" wrapper only; the body (message list)
+        # still flows through execute()'s normal ### Error / code-block checks.
+        return self.execute("console", ["--raw"]).raw_output.strip()
+
+    def requests(self) -> str:
+        return self.execute("requests", ["--raw"]).raw_output.strip()
 
     def close(self) -> None:
         try:
