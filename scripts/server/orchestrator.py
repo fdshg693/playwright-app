@@ -14,10 +14,10 @@ import logging
 
 from openai import OpenAI
 
-from scripts.vertical_slice import runner, task_log
+from scripts.vertical_slice import runner
 from scripts.vertical_slice.cli_executor import CliExecutor
+from scripts.vertical_slice.run_id import new_run_id
 from scripts.vertical_slice.runner import StepBlock
-from scripts.vertical_slice.step_log import step_log_path
 from scripts.vertical_slice.story import Story
 
 logger = logging.getLogger("session_server")
@@ -30,7 +30,7 @@ def run_story(
     story: Story,
     out_path: str,
     seed_code: str | None = None,
-) -> tuple[bool, str, list[dict]]:
+) -> tuple[bool, str, list[dict], str]:
     """Run every step of `story` in order, then write and test the artifacts.
 
     `seed_code` is the generated code for the `POST /sessions` navigation to
@@ -40,20 +40,19 @@ def run_story(
     in-place on whatever page the AI left off on, instead of navigating
     there itself, and fail the moment it's run standalone.
 
-    Returns (passed, spec_path, failure_notes). Stops at the first step that
-    produces failure_notes, same as `runner.run_vertical_slice()`.
+    Returns (passed, spec_path, failure_notes, run_id). Stops at the first
+    step that produces failure_notes, same as `runner.run_vertical_slice()`.
     """
-    step_log_path(out_path).unlink(missing_ok=True)
-    task_log.task_log_path(out_path).unlink(missing_ok=True)
+    run_id = new_run_id()
 
     seed_block: list[StepBlock] = []
     if seed_code:
         seed_block.append(StepBlock(step=None, code=[seed_code]))
-        runner.log_seed_task(cli, seed_code, out_path)
+        runner.log_seed_task(cli, seed_code, out_path, run_id)
 
-    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path)
+    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path, run_id)
     passed, spec_path = runner.write_and_test(seed_block + step_blocks, failure_notes, out_path, story.name)
-    return passed, str(spec_path), failure_notes
+    return passed, str(spec_path), failure_notes, run_id
 
 
 def resume_story(
@@ -64,7 +63,7 @@ def resume_story(
     out_path: str,
     tasks_log_path: str,
     resume_before_step: int,
-) -> tuple[bool, str, list[dict]]:
+) -> tuple[bool, str, list[dict], str]:
     """Server-side counterpart of `runner.resume_vertical_slice`: fast-forwards
     `cli` (a fresh session from `SessionManager.create()`, which never
     navigates) using the code recorded in `tasks_log_path`, then runs
@@ -77,9 +76,8 @@ def resume_story(
     if replay_source:
         cli.run_code(replay_source)
 
-    step_log_path(out_path).unlink(missing_ok=True)
-    task_log.task_log_path(out_path).unlink(missing_ok=True)
+    run_id = new_run_id()
 
-    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path)
+    step_blocks, failure_notes = runner.run_steps(story.steps, cli, client, model, out_path, run_id)
     passed, spec_path = runner.write_and_test(prior_blocks + step_blocks, failure_notes, out_path, story.name)
-    return passed, str(spec_path), failure_notes
+    return passed, str(spec_path), failure_notes, run_id

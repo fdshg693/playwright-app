@@ -63,14 +63,15 @@ def main() -> None:
 
     try:
         if args.resume_tasks_log:
-            passed = resume_vertical_slice(
+            passed, run_id = resume_vertical_slice(
                 story, cli, client, model, args.out, args.resume_tasks_log, args.resume_before_step
             )
         else:
-            passed = run_vertical_slice(story, cli, client, model, args.out)
+            passed, run_id = run_vertical_slice(story, cli, client, model, args.out)
     finally:
         cli.close()
 
+    logging.getLogger("vertical_slice").info("run_id=%s", run_id)
     raise SystemExit(0 if passed else 1)
 
 

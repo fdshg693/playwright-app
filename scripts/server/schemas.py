@@ -36,6 +36,7 @@ class RunResponse(BaseModel):
     passed: bool
     spec_path: str
     failure_notes: list[dict] = []
+    run_id: str
 
 
 class ResumeRequest(BaseModel):
@@ -49,3 +50,4 @@ class ResumeResponse(BaseModel):
     passed: bool
     spec_path: str
     failure_notes: list[dict] = []
+    run_id: str

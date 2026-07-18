@@ -86,10 +86,10 @@ def run_session(session_id: str) -> RunResponse:
         raise HTTPException(status_code=400, detail=f"session {session_id} has no story to run")
 
     out_path = f"tests/generated/{story.name}.spec.ts"
-    passed, spec_path, failure_notes = orchestrator.run_story(
+    passed, spec_path, failure_notes, run_id = orchestrator.run_story(
         cli, _get_client(), config.get_model(), story, out_path, seed_code=sessions.get_seed_code(session_id)
     )
-    return RunResponse(passed=passed, spec_path=spec_path, failure_notes=failure_notes)
+    return RunResponse(passed=passed, spec_path=spec_path, failure_notes=failure_notes, run_id=run_id)
 
 
 @app.post("/sessions/resume", status_code=201)
@@ -107,13 +107,15 @@ def resume_session(body: ResumeRequest) -> ResumeResponse:
 
     out_path = f"tests/generated/{story.name}.spec.ts"
     try:
-        passed, spec_path, failure_notes = orchestrator.resume_story(
+        passed, spec_path, failure_notes, run_id = orchestrator.resume_story(
             cli, _get_client(), config.get_model(), story, out_path, body.tasks_log, body.resume_before_step
         )
     except CliError as exc:
         sessions.close(session_id)
         raise HTTPException(status_code=502, detail=str(exc)) from None
-    return ResumeResponse(session_id=session_id, passed=passed, spec_path=spec_path, failure_notes=failure_notes)
+    return ResumeResponse(
+        session_id=session_id, passed=passed, spec_path=spec_path, failure_notes=failure_notes, run_id=run_id
+    )
 
 
 @app.delete("/sessions/{session_id}", status_code=204)

@@ -32,6 +32,7 @@ def run_step(
     step,
     remaining_steps: list,
     out_path: str,
+    run_id: str,
 ) -> tuple[list[str], list[dict]]:
     """Run one step as a multi-turn tool-calling loop.
 
@@ -174,6 +175,7 @@ def run_step(
                 "stop_reason": stop_reason,
             },
             out_path,
+            run_id,
         )
 
         if stop:

@@ -15,8 +15,18 @@ import json
 from pathlib import Path
 
 
-def task_log_path(out_path: str) -> Path:
-    return Path(out_path).with_suffix(".tasks.jsonl")
+def history_dir(out_path: str) -> Path:
+    """Run-scoped log directory for `out_path`, e.g.
+    `tests/generated/search-demo.spec.ts` -> `tests/generated/search-demo.history/`.
+    Holds every run's `{run_id}__{stem}.steps.jsonl`/`.tasks.jsonl`, kept out
+    of `tests/generated/` directly so that dir stays "current state" only."""
+    path = Path(out_path)
+    return path.parent / f"{path.stem}.history"
+
+
+def task_log_path(out_path: str, run_id: str) -> Path:
+    stem = Path(out_path).stem
+    return history_dir(out_path) / f"{run_id}__{stem}.tasks.jsonl"
 
 
 def recordings_dir(out_path: str) -> Path:
@@ -26,8 +36,8 @@ def recordings_dir(out_path: str) -> Path:
     return path.parent / f"{path.stem}.recordings"
 
 
-def append_task_log(entry: dict, out_path: str) -> None:
-    path = task_log_path(out_path)
+def append_task_log(entry: dict, out_path: str, run_id: str) -> None:
+    path = task_log_path(out_path, run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .task_log import history_dir
+
 SNAPSHOT_LOG_LIMIT = 2000
 
 
@@ -32,12 +34,13 @@ def truncate(text: str, limit: int = SNAPSHOT_LOG_LIMIT) -> str:
     return f"{text[:limit]}\n...<truncated, {len(text)} chars total>"
 
 
-def step_log_path(out_path: str) -> Path:
-    return Path(out_path).with_suffix(".steps.jsonl")
+def step_log_path(out_path: str, run_id: str) -> Path:
+    stem = Path(out_path).stem
+    return history_dir(out_path) / f"{run_id}__{stem}.steps.jsonl"
 
 
-def append_step_log(entry: dict, out_path: str) -> None:
-    path = step_log_path(out_path)
+def append_step_log(entry: dict, out_path: str, run_id: str) -> None:
+    path = step_log_path(out_path, run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

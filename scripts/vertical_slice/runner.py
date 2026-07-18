@@ -15,7 +15,7 @@ from openai import OpenAI
 
 from . import task_log
 from .cli_executor import CliExecutor
-from .step_log import step_log_path
+from .run_id import new_run_id
 from .step_runner import run_step
 from .story import Step, Story
 
@@ -76,7 +76,7 @@ def run_playwright_test(spec_path: Path) -> bool:
     return proc.returncode == 0
 
 
-def log_seed_task(cli: CliExecutor, code: str | None, out_path: str) -> None:
+def log_seed_task(cli: CliExecutor, code: str | None, out_path: str, run_id: str) -> None:
     """Records the `<out>.tasks.jsonl` entry for the initial navigation (the
     `cli.open(story.seed_url)` call, or -- for resume -- the bare
     `cli.open()` + replay). There's no "before" state to capture: the
@@ -96,6 +96,7 @@ def log_seed_task(cli: CliExecutor, code: str | None, out_path: str) -> None:
             "after_screenshot": cli.screenshot(str(recordings / "seed-after.png")),
         },
         out_path,
+        run_id,
     )
 
 
@@ -106,6 +107,7 @@ def run_task_logged_step(
     step: Step,
     remaining_steps: list[Step],
     out_path: str,
+    run_id: str,
 ) -> tuple[list[str], list[dict]]:
     """Runs one step via `step_runner.run_step`, wrapped with before/after
     snapshot+screenshot capture and a `<out>.tasks.jsonl` entry (task_log.py).
@@ -118,7 +120,7 @@ def run_task_logged_step(
     before_snapshot = cli.snapshot_text()
     before_screenshot = cli.screenshot(str(recordings / f"{step.id}-before.png"))
 
-    step_code, step_failures = run_step(cli, client, model, step, remaining_steps, out_path)
+    step_code, step_failures = run_step(cli, client, model, step, remaining_steps, out_path, run_id)
 
     after_snapshot = cli.snapshot_text()
     after_screenshot = cli.screenshot(str(recordings / f"{step.id}-after.png"))
@@ -135,12 +137,13 @@ def run_task_logged_step(
             "after_screenshot": after_screenshot,
         },
         out_path,
+        run_id,
     )
     return step_code, step_failures
 
 
 def run_steps(
-    story_steps: list[Step], cli: CliExecutor, client: OpenAI, model: str, out_path: str
+    story_steps: list[Step], cli: CliExecutor, client: OpenAI, model: str, out_path: str, run_id: str
 ) -> tuple[list[StepBlock], list[dict]]:
     """Runs `story_steps` in order, stopping at the first step that produces
     failure_notes. Shared by run_vertical_slice/resume_vertical_slice here
@@ -151,7 +154,9 @@ def run_steps(
     failure_notes: list[dict] = []
     for i, step in enumerate(story_steps):
         logger.info("=== step %s: %s ===", step.id, step.instruction)
-        step_code, step_failures = run_task_logged_step(cli, client, model, step, story_steps[i:], out_path)
+        step_code, step_failures = run_task_logged_step(
+            cli, client, model, step, story_steps[i:], out_path, run_id
+        )
         blocks.append(StepBlock(step=step, code=step_code))
         failure_notes.extend(step_failures)
         if step_failures:
@@ -212,17 +217,18 @@ def write_and_test(
     return passed, spec_path
 
 
-def run_vertical_slice(story: Story, cli: CliExecutor, client: OpenAI, model: str, out_path: str) -> bool:
-    step_log_path(out_path).unlink(missing_ok=True)
-    task_log.task_log_path(out_path).unlink(missing_ok=True)
+def run_vertical_slice(
+    story: Story, cli: CliExecutor, client: OpenAI, model: str, out_path: str
+) -> tuple[bool, str]:
+    run_id = new_run_id()
 
     open_result = cli.open(story.seed_url)
     seed_block = [StepBlock(step=None, code=[open_result.generated_code])] if open_result.generated_code else []
-    log_seed_task(cli, open_result.generated_code, out_path)
+    log_seed_task(cli, open_result.generated_code, out_path, run_id)
 
-    step_blocks, failure_notes = run_steps(story.steps, cli, client, model, out_path)
+    step_blocks, failure_notes = run_steps(story.steps, cli, client, model, out_path, run_id)
     passed, _ = write_and_test(seed_block + step_blocks, failure_notes, out_path, story.name)
-    return passed
+    return passed, run_id
 
 
 def resume_vertical_slice(
@@ -233,7 +239,7 @@ def resume_vertical_slice(
     out_path: str,
     tasks_log_path: str,
     resume_before_step: int,
-) -> bool:
+) -> tuple[bool, str]:
     """Fast-forwards a fresh `cli` session to `resume_before_step` using the
     code recorded in `tasks_log_path`, then runs `story.steps` in order from
     there (see build_resume_state for what "fast-forward" means). `story` can
@@ -247,9 +253,8 @@ def resume_vertical_slice(
     if replay_source:
         cli.run_code(replay_source)
 
-    step_log_path(out_path).unlink(missing_ok=True)
-    task_log.task_log_path(out_path).unlink(missing_ok=True)
+    run_id = new_run_id()
 
-    step_blocks, failure_notes = run_steps(story.steps, cli, client, model, out_path)
+    step_blocks, failure_notes = run_steps(story.steps, cli, client, model, out_path, run_id)
     passed, _ = write_and_test(prior_blocks + step_blocks, failure_notes, out_path, story.name)
-    return passed
+    return passed, run_id
