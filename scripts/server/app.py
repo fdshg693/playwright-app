@@ -49,10 +49,11 @@ def start_session(body: StartSessionRequest) -> StartSessionResponse:
     session_id = uuid.uuid4().hex
     cli = sessions.create(session_id, story=body.story)
     try:
-        cli.open(body.target_url)
+        open_result = cli.open(body.target_url)
     except CliError as exc:
         sessions.close(session_id)
         raise HTTPException(status_code=502, detail=str(exc)) from None
+    sessions.set_seed_code(session_id, open_result.generated_code)
     return StartSessionResponse(session_id=session_id)
 
 
@@ -84,7 +85,7 @@ def run_session(session_id: str) -> RunResponse:
 
     out_path = f"tests/generated/{story.name}.spec.ts"
     passed, spec_path, failure_notes = orchestrator.run_story(
-        cli, _get_client(), config.get_model(), story, out_path
+        cli, _get_client(), config.get_model(), story, out_path, seed_code=sessions.get_seed_code(session_id)
     )
     return RunResponse(passed=passed, spec_path=spec_path, failure_notes=failure_notes)
 

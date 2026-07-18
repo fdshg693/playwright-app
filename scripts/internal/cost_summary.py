@@ -38,12 +38,12 @@ def _extract(usage: dict) -> dict:
     input_details = usage.get("input_tokens_details") or {}
     output_details = usage.get("output_tokens_details") or {}
     return {
-        "input_tokens": usage.get("input_tokens", 0),
-        "cached_tokens": input_details.get("cached_tokens", 0),
-        "cache_write_tokens": input_details.get("cache_write_tokens", 0),
-        "output_tokens": usage.get("output_tokens", 0),
-        "reasoning_tokens": output_details.get("reasoning_tokens", 0),
-        "total_tokens": usage.get("total_tokens", 0),
+        "input_tokens": usage.get("input_tokens") or 0,
+        "cached_tokens": input_details.get("cached_tokens") or 0,
+        "cache_write_tokens": input_details.get("cache_write_tokens") or 0,
+        "output_tokens": usage.get("output_tokens") or 0,
+        "reasoning_tokens": output_details.get("reasoning_tokens") or 0,
+        "total_tokens": usage.get("total_tokens") or 0,
     }
 
 

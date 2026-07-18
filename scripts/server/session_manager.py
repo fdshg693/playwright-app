@@ -24,11 +24,13 @@ class SessionManager:
     def __init__(self) -> None:
         self._sessions: dict[str, CliExecutor] = {}
         self._stories: dict[str, Story | None] = {}
+        self._seed_code: dict[str, str | None] = {}
 
     def create(self, session_id: str, story: str | None = None) -> CliExecutor:
         cli = CliExecutor(session=session_id)
         self._sessions[session_id] = cli
         self._stories[session_id] = load_story(story) if story else None
+        self._seed_code[session_id] = None
         return cli
 
     def get(self, session_id: str) -> CliExecutor:
@@ -42,8 +44,23 @@ class SessionManager:
             raise SessionNotFoundError(session_id)
         return self._stories[session_id]
 
+    def set_seed_code(self, session_id: str, code: str | None) -> None:
+        """Record the generated code for the `POST /sessions` navigation, so
+        `/run` can prepend it to the assembled spec file (it happens outside
+        `run_story`'s step loop, since it's driven by `target_url`, not a
+        story step -- see plan/main/03-task-orchestration.md)."""
+        if session_id not in self._sessions:
+            raise SessionNotFoundError(session_id)
+        self._seed_code[session_id] = code
+
+    def get_seed_code(self, session_id: str) -> str | None:
+        if session_id not in self._sessions:
+            raise SessionNotFoundError(session_id)
+        return self._seed_code[session_id]
+
     def close(self, session_id: str) -> None:
         cli = self.get(session_id)
         cli.close()
         del self._sessions[session_id]
         del self._stories[session_id]
+        del self._seed_code[session_id]

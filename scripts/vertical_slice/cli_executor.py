@@ -73,6 +73,19 @@ class CliExecutor:
         out = self._run(["snapshot", "--json"])
         return json.loads(out)["snapshot"]
 
+    def generate_locator(self, ref: str) -> str:
+        # --raw strips the "### Ran Playwright code" wrapper entirely and
+        # returns just the locator expression, so no _CODE_BLOCK_RE parsing
+        # is needed here -- a plain strip is enough.
+        return self._run(["generate-locator", ref, "--raw"]).strip()
+
+    def eval_raw(self, script: str, ref: str | None = None) -> str:
+        args = ["eval", script]
+        if ref:
+            args.append(ref)
+        args.append("--raw")
+        return self._run(args).strip()
+
     def close(self) -> None:
         try:
             self._run(["close"])

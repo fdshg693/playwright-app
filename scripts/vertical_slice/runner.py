@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from openai import OpenAI
@@ -15,16 +16,38 @@ from openai import OpenAI
 from .cli_executor import CliExecutor
 from .step_log import step_log_path
 from .step_runner import run_step
-from .story import Story
+from .story import Step, Story
 
 logger = logging.getLogger("vertical_slice")
 
 
-def write_spec_file(generated_code: list[str], out_path: str, test_name: str) -> Path:
+@dataclass
+class StepBlock:
+    """One chunk of generated code, tagged with the story step it came from.
+
+    `step` is None for the initial `cli.open(story.seed_url)` block -- it has
+    no story step number, so `write_spec_file` skips the `// N. ...` comment
+    for it (test-generation.md 2.2 only numbers actual story steps).
+    """
+
+    step: Step | None
+    code: list[str]
+
+
+def write_spec_file(blocks: list[StepBlock], out_path: str, test_name: str) -> Path:
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [line for code in generated_code for line in code.splitlines() if line.strip()]
-    body = "\n".join(f"  {line}" for line in lines)
+
+    body_lines: list[str] = []
+    for block in blocks:
+        lines = [line for code in block.code for line in code.splitlines() if line.strip()]
+        if not lines:
+            continue
+        if block.step is not None:
+            body_lines.append(f"// {block.step.id}. {block.step.instruction}")
+        body_lines.extend(lines)
+
+    body = "\n".join(f"  {line}" for line in body_lines)
     content = (
         "import { test, expect } from '@playwright/test';\n\n"
         f"test('{test_name}', async ({{ page }}) => {{\n"
@@ -53,25 +76,25 @@ def run_playwright_test(spec_path: Path) -> bool:
 
 
 def run_vertical_slice(story: Story, cli: CliExecutor, client: OpenAI, model: str, out_path: str) -> bool:
-    generated_code: list[str] = []
+    blocks: list[StepBlock] = []
     failure_notes: list[dict] = []
     step_log_path(out_path).unlink(missing_ok=True)
 
     open_result = cli.open(story.seed_url)
     if open_result.generated_code:
-        generated_code.append(open_result.generated_code)
+        blocks.append(StepBlock(step=None, code=[open_result.generated_code]))
 
     for i, step in enumerate(story.steps):
         logger.info("=== step %s: %s ===", step.id, step.instruction)
         step_code, step_failures = run_step(cli, client, model, step, story.steps[i:], out_path)
-        generated_code.extend(step_code)
+        blocks.append(StepBlock(step=step, code=step_code))
         failure_notes.extend(step_failures)
         if step_failures:
             break
     else:
         logger.info("all steps completed")
 
-    spec_path = write_spec_file(generated_code, out_path, story.name)
+    spec_path = write_spec_file(blocks, out_path, story.name)
     write_failure_notes(failure_notes, out_path)
 
     if failure_notes:

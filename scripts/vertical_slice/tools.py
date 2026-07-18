@@ -113,6 +113,35 @@ TOOL_SCHEMAS = [
     },
     {
         "type": "function",
+        "name": "add_expectation",
+        "description": (
+            "確認のみのステップで、snapshot内のrefが指す要素についてexpectアサーションを追加する。"
+            "matcherに応じてこちら側で安定ロケータ（と必要なら期待テキスト）を取得し、"
+            "expect文を組み立てる。他の操作系ツールと同じターンで一緒に呼んでもよい。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ref": _REF_PROPERTY,
+                "matcher": {
+                    "type": "string",
+                    "enum": ["toBeVisible", "toHaveText"],
+                    "description": (
+                        "toBeVisible: 要素が表示されていることを確認する。"
+                        "toHaveText: 要素のテキスト内容が一致することを確認する。"
+                    ),
+                },
+                "description": {
+                    "type": "string",
+                    "description": "何を検証しているかの短い説明（例: 検索結果が表示されている）",
+                },
+            },
+            "required": ["ref", "matcher", "description"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
         "name": "finish_step",
         "description": (
             "現在のステップの完了（またはブロック）を宣言する。"
@@ -150,6 +179,32 @@ TOOL_SCHEMAS = [
 
 _SIMPLE_REF_COMMANDS = {"click", "check", "uncheck", "hover"}
 
+# eval script used to capture each matcher's expected value, keyed by matcher
+# name. toBeVisible needs no eval call -- only a locator.
+_EXPECTATION_EVAL_SCRIPTS = {"toHaveText": "el => el.textContent"}
+
+
+def _add_expectation(cli: CliExecutor, ref: str, matcher: str) -> ActionResult:
+    locator = cli.generate_locator(ref)
+    if matcher == "toBeVisible":
+        return ActionResult(
+            generated_code=f"await expect(page.{locator}).toBeVisible();",
+            raw_output=f"locator: {locator}",
+        )
+
+    if matcher == "toHaveText":
+        text = cli.eval_raw(_EXPECTATION_EVAL_SCRIPTS[matcher], ref)
+        # playwright-cli's `--raw` output for `eval` is already a JSON-encoded
+        # string literal (e.g. `"foo\nbar"`), which is valid as-is in a TS
+        # string literal position -- wrapping it again (e.g. json.dumps(text))
+        # would double-escape it.
+        return ActionResult(
+            generated_code=f"await expect(page.{locator}).toHaveText({text});",
+            raw_output=f"locator: {locator}\ntext: {text}",
+        )
+
+    raise ValueError(f"unknown matcher: {matcher}")
+
 
 def execute_tool(cli: CliExecutor, name: str, args: dict) -> ActionResult:
     """Dispatch one non-finish_step tool call to the CLI. Raises CliError on failure."""
@@ -171,5 +226,8 @@ def execute_tool(cli: CliExecutor, name: str, args: dict) -> ActionResult:
 
     if name == "select":
         return cli.execute("select", [args["ref"], args["value"]])
+
+    if name == "add_expectation":
+        return _add_expectation(cli, args["ref"], args["matcher"])
 
     raise ValueError(f"unknown tool: {name}")
