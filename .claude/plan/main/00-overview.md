@@ -10,7 +10,7 @@
 ## 実装ステップ
 
 1. [01-vertical-slice.md](01-vertical-slice.md) — サーバーなしでコアループが成立するかをPython自動スクリプトで検証する（実装・実行済み）
-2. [02-server-skeleton.md](02-server-skeleton.md) — Playwright CLIセッションを永続させるサーバーの骨組み（詳細は後に記載）
+2. [02-server-skeleton.md](02-server-skeleton.md) — Playwright CLIセッションを永続させるサーバーの骨組み
 3. [03-task-orchestration.md](03-task-orchestration.md) — 1タスク＝1フレッシュコンテキストのAI呼び出しオーケストレーション自動化（詳細は後に記載）
 4. [04-code-generation-assembly.md](04-code-generation-assembly.md) — 生成コードのテストファイルへの組み立て（詳細は後に記載）
 5. [05-recording-and-resume.md](05-recording-and-resume.md) — 操作ログ・スクリーンショットの記録と途中再開（詳細は後に記載）
@@ -24,8 +24,9 @@
 |---|---|
 | Step1はネットワークサーバー化せず、`CliExecutor`というコード上のモジュール境界だけを用意する | Step2でこの境界をそのままネットワークサーバーへ切り出す想定のため。詳細は[[01-vertical-slice]] |
 | AI呼び出しは`previous_response_id`を使わず、タスクごとに`input`をゼロから組み立てる | SPEC.md 2章「1タスク＝1フレッシュコンテキスト」を隠れた状態に依存せず保証するため |
+| Step2でStep1の`CliExecutor`境界をFastAPIによるネットワークサーバーへ切り出す（`session_id`はplaywright-cliの`-s=`セッション名と1:1対応） | Step1の決定表どおり「Step2でこの境界をそのままネットワークサーバーへ切り出す想定」を実行するため。詳細は[[02-server-skeleton]] |
 
-Step2以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
+Step3以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
 
 ## 変更/新規ファイル一覧
 
@@ -36,7 +37,13 @@ Step2以降の決定事項は、各ステップの詳細が固まり次第この
 - `scripts/stories/search-demo.yaml`
 - `tests/generated/search-demo.spec.ts`
 
-### 今後（Step2以降）
+### 新規（Step2）
+- `scripts/server/`（`app.py` / `session_manager.py` / `schemas.py` / `main.py`）
+
+### 変更（Step2）
+- `pyproject.toml` — `fastapi`・`uvicorn`を依存に追加
+
+### 今後（Step3以降）
 後に記載。
 
 ## `.claude/rules` 更新ポイント

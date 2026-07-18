@@ -1,0 +1,39 @@
+"""In-memory registry of session_id -> CliExecutor.
+
+session_id is the playwright-cli `-s=` session name itself, per the
+plan's decision to not introduce a separate "run" concept (see
+plan/main/02-server-skeleton.md). No concurrency locking: Step2's scope
+is a single sequential scenario, not concurrent access safety.
+"""
+
+from __future__ import annotations
+
+from scripts.vertical_slice.cli_executor import CliExecutor
+
+
+class SessionNotFoundError(KeyError):
+    """Raised when a session_id has no live CliExecutor."""
+
+
+class SessionManager:
+    def __init__(self) -> None:
+        self._sessions: dict[str, CliExecutor] = {}
+        self._stories: dict[str, str | None] = {}
+
+    def create(self, session_id: str, story: str | None = None) -> CliExecutor:
+        cli = CliExecutor(session=session_id)
+        self._sessions[session_id] = cli
+        self._stories[session_id] = story
+        return cli
+
+    def get(self, session_id: str) -> CliExecutor:
+        try:
+            return self._sessions[session_id]
+        except KeyError:
+            raise SessionNotFoundError(session_id) from None
+
+    def close(self, session_id: str) -> None:
+        cli = self.get(session_id)
+        cli.close()
+        del self._sessions[session_id]
+        del self._stories[session_id]
