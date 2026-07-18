@@ -11,7 +11,7 @@
 
 1. [01-vertical-slice.md](01-vertical-slice.md) — サーバーなしでコアループが成立するかをPython自動スクリプトで検証する（実装・実行済み）
 2. [02-server-skeleton.md](02-server-skeleton.md) — Playwright CLIセッションを永続させるサーバーの骨組み
-3. [03-task-orchestration.md](03-task-orchestration.md) — 1タスク＝1フレッシュコンテキストのAI呼び出しオーケストレーション自動化（詳細は後に記載）
+3. [03-task-orchestration.md](03-task-orchestration.md) — 1タスク＝1フレッシュコンテキストのAI呼び出しオーケストレーション自動化
 4. [04-code-generation-assembly.md](04-code-generation-assembly.md) — 生成コードのテストファイルへの組み立て（詳細は後に記載）
 5. [05-recording-and-resume.md](05-recording-and-resume.md) — 操作ログ・スクリーンショットの記録と途中再開（詳細は後に記載）
 6. [06-failure-handling.md](06-failure-handling.md) — リトライと失敗時の診断情報つき停止（詳細は後に記載）
@@ -25,8 +25,9 @@
 | Step1はネットワークサーバー化せず、`CliExecutor`というコード上のモジュール境界だけを用意する | Step2でこの境界をそのままネットワークサーバーへ切り出す想定のため。詳細は[[01-vertical-slice]] |
 | AI呼び出しは`previous_response_id`を使わず、タスクごとに`input`をゼロから組み立てる | SPEC.md 2章「1タスク＝1フレッシュコンテキスト」を隠れた状態に依存せず保証するため |
 | Step2でStep1の`CliExecutor`境界をFastAPIによるネットワークサーバーへ切り出す（`session_id`はplaywright-cliの`-s=`セッション名と1:1対応） | Step1の決定表どおり「Step2でこの境界をそのままネットワークサーバーへ切り出す想定」を実行するため。詳細は[[02-server-skeleton]] |
+| Step3では新しいAIループを書かず、Step1の`step_runner.run_step`（`finish_step`宣言によるステップ完了判定）をサーバーから再利用する。`POST /sessions/{id}/run`はHTTPリクエスト内で同期的に最後まで実行し、進捗ストリーミングは作らない | Step1で動作確認済みの設計に乗ることでStep3のリスクを増やさないため。進捗可視化・強制停止はStep7のスコープ。詳細は[[03-task-orchestration]] |
 
-Step3以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
+Step4以降の決定事項は、各ステップの詳細が固まり次第この表に追記する。
 
 ## 変更/新規ファイル一覧
 

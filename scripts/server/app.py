@@ -1,10 +1,10 @@
 """FastAPI app: the network-server cut of Step1's CliExecutor boundary.
 
-Keeps one playwright-cli session alive per session_id and exposes the four
-operations plan/main/02-server-skeleton.md calls for. No AI orchestration
-here (Step3) -- a human drives these endpoints directly. `/command` passes
-`command`/`args` straight through to `CliExecutor.execute` without going
-through the tool-schema layer in vertical_slice/tools.py.
+Keeps one playwright-cli session alive per session_id and exposes the
+operations plan/main/02-server-skeleton.md (snapshot/command, human-driven)
+and plan/main/03-task-orchestration.md (`/run`, AI-driven) call for.
+`/command` passes `command`/`args` straight through to `CliExecutor.execute`
+without going through the tool-schema layer in vertical_slice/tools.py.
 """
 
 from __future__ import annotations
@@ -12,12 +12,16 @@ from __future__ import annotations
 import uuid
 
 from fastapi import FastAPI, HTTPException
+from openai import OpenAI
 
+from scripts.vertical_slice import config
 from scripts.vertical_slice.cli_executor import CliError
 
+from . import orchestrator
 from .schemas import (
     CommandRequest,
     CommandResponse,
+    RunResponse,
     SnapshotResponse,
     StartSessionRequest,
     StartSessionResponse,
@@ -26,6 +30,18 @@ from .session_manager import SessionManager, SessionNotFoundError
 
 app = FastAPI(title="playwright-app session server")
 sessions = SessionManager()
+
+# Lazy singleton: config.get_api_key() raises if OPENAI_API_KEY is unset, so
+# building this at import time would make AI-free endpoints (/snapshot,
+# /command) unable to start the server without an API key.
+_client: OpenAI | None = None
+
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=config.get_api_key(), base_url=config.get_base_url())
+    return _client
 
 
 @app.post("/sessions", status_code=201)
@@ -57,6 +73,20 @@ def run_command(session_id: str, body: CommandRequest) -> CommandResponse:
     except CliError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from None
     return CommandResponse(generated_code=result.generated_code, raw_output=result.raw_output)
+
+
+@app.post("/sessions/{session_id}/run")
+def run_session(session_id: str) -> RunResponse:
+    cli = _get_cli(session_id)
+    story = sessions.get_story(session_id)
+    if story is None:
+        raise HTTPException(status_code=400, detail=f"session {session_id} has no story to run")
+
+    out_path = f"tests/generated/{story.name}.spec.ts"
+    passed, spec_path, failure_notes = orchestrator.run_story(
+        cli, _get_client(), config.get_model(), story, out_path
+    )
+    return RunResponse(passed=passed, spec_path=spec_path, failure_notes=failure_notes)
 
 
 @app.delete("/sessions/{session_id}", status_code=204)

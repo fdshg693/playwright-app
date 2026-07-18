@@ -63,7 +63,9 @@ def _request(method: str, path: str, body: dict | None = None) -> tuple[int, dic
 def _run_scenario() -> None:
     print(f"POST /sessions target_url={TARGET_URL}")
     status, body = _request(
-        "POST", "/sessions", {"target_url": TARGET_URL, "story": "custom search demo"}
+        "POST",
+        "/sessions",
+        {"target_url": TARGET_URL, "story": "scripts/stories/custom-pages-demo.yaml"},
     )
     assert status == 201, f"expected 201, got {status}: {body}"
     session_id = body["session_id"]

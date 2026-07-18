@@ -5,7 +5,7 @@ paths:
 
 ## アーキテクチャ概要
 
-このプロジェクトは「人間が自然言語で書いたテストストーリー → AIがブラウザを操作 → 再実行可能なPlaywrightテストコード」を自動生成する仕組み。全体設計は [SPEC.md](../../SPEC.md) が正、実装ロードマップは [big_plans/](../../big_plans/)（WHAT・順序）と [.claude/plan/main/](../plan/main/)（HOW・実装詳細、`.claude/plan/README.md` の書式に従う）に分かれている。**現状 big_plans の Step1（縦の一本通し）のみ実装済み**で、`scripts/vertical_slice/` 配下がそれに当たる（詳細は [[vertical-slice-runner]]）。Step2以降（永続サーバー化・リトライ・記録/再開など）は未実装。
+このプロジェクトは「人間が自然言語で書いたテストストーリー → AIがブラウザを操作 → 再実行可能なPlaywrightテストコード」を自動生成する仕組み。全体設計は [SPEC.md](../../SPEC.md) が正、実装ロードマップは [big_plans/](../../big_plans/)（WHAT・順序）と [.claude/plan/main/](../plan/main/)（HOW・実装詳細、`.claude/plan/README.md` の書式に従う）に分かれている。**現状 big_plans の Step1〜3（縦の一本通し・サーバー骨組み・タスクオーケストレーション自動化）まで実装済み**で、`scripts/vertical_slice/`（詳細は [[vertical-slice-runner]]）と `scripts/server/`（詳細は [[session-server]]）がそれに当たる。Step4以降（コード生成組み立て・記録/再開・リトライなど）は未実装。
 
 ### 崩してはいけない前提（SPEC.md 2章）
 

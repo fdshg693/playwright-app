@@ -30,3 +30,9 @@ class CommandRequest(BaseModel):
 class CommandResponse(BaseModel):
     generated_code: str | None
     raw_output: str
+
+
+class RunResponse(BaseModel):
+    passed: bool
+    spec_path: str
+    failure_notes: list[dict] = []
