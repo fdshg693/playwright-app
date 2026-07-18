@@ -13,7 +13,7 @@
 
 1. [01-run-scoped-logs.md](01-run-scoped-logs.md) — `<out>.steps.jsonl`/`<out>.tasks.jsonl`を実行ごとに残る run-scoped なパスへ変更し、`unlink()`による上書きを廃止する
 2. [02-cost-summary-cli.md](02-cost-summary-cli.md) — `cost_summary.py`を複数ファイル/ディレクトリ/時間範囲対応にし、責務ごとのモジュールへ分割する
-3. [03-dashboard.md](03-dashboard.md) — 専用ダッシュボード化（未着手、プレースホルダ）
+3. [03-dashboard.md](03-dashboard.md) — `cost_summary.py`に`--html`オプションを追加し、run-history集計結果を自己完結HTMLとして出力する（実装済み）
 
 ## 主要な決定事項
 
@@ -34,6 +34,7 @@
 - `scripts/internal/cost_log_discovery.py`
 - `scripts/internal/cost_aggregate.py`
 - `scripts/internal/cost_report.py`
+- `scripts/internal/cost_html.py`（Step3）
 - `.claude/rules/cost-summary.md`
 
 ### 変更
@@ -48,3 +49,4 @@
 - `vertical-slice-runner.md`（Step1）: `step_log.py`/`task_log.py`のパス生成が`run_id`ベースに変わったこと、`unlink`による上書きが無くなったことを反映
 - `session-server.md`（Step1）: `run_story`/`resume_story`が`run_id`を発行・返却するようになったことを反映
 - `cost-summary.md`（Step2, 新規作成・フロントマター付き）: `scripts/internal/`配下のコスト集計サブシステムの責務分割・使い方
+- `cost-summary.md`（Step3, 既存ファイルへ追記・フロントマター変更不要）: `--html`オプション・`cost_html.py`の役割

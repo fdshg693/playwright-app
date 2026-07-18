@@ -55,10 +55,18 @@ npx playwright test tests/generated/<name>.spec.ts
 
 ## トークン消費・概算コストを集計する
 
-`<out>.steps.jsonl` の各行の `usage` をステップ単位/全体で集計するには `scripts/internal/cost_summary.py` を使う:
+`<out>.steps.jsonl`（`{stem}.history/`配下、[[vertical-slice-runner]]参照）の各行の `usage` をステップ単位/全体で集計するには `scripts/internal/cost_summary.py` を使う。1ファイルを指定するとそのファイルのステップ内訳を出す:
 
 ```bash
-python -m scripts.internal.cost_summary tests/generated/<name>.spec.steps.jsonl
+python -m scripts.internal.cost_summary tests/generated/<name>.spec.ts.history/<run_id>__<name>.spec.steps.jsonl
+```
+
+ディレクトリや複数ファイルを渡すと、実行ごとの行（時刻昇順）＋累計コストの「run history」表に切り替わる。`--start`/`--end`（ISO8601）で時間範囲を絞り込める（詳細は[[cost-summary]]）:
+
+```bash
+python -m scripts.internal.cost_summary tests/generated/<name>.spec.ts.history/
+python -m scripts.internal.cost_summary tests/generated/ --start 2026-07-01 --end 2026-07-19T12:00:00
+python -m scripts.internal.cost_summary tests/generated/ --html cost_dashboard.html  # run-historyを自己完結HTMLに出力
 ```
 
 単価は同階層の `scripts/internal/model_pricing.csv`（`model,input_price_per_1m,output_price_per_1m,cached_input_price_per_1m`、USD per 1M tokens）から、ログに記録された `model` で行を引いて使う。該当行がなければ `default` 行（初期値は全て0）にフォールバックする。実際の単価がわかったらそのモデル名の行をCSVに追記すること。ログが `model` フィールドを持たない古い形式の場合や、別モデルの単価で試算したい場合は `--model <name>` で上書きできる。
