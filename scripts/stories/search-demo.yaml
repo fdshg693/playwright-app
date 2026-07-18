@@ -1,0 +1,11 @@
+name: search demo
+seed_url: "https://playwright.dev"
+steps:
+  - id: 1
+    instruction: 検索欄をクリックしてフォーカスする
+  - id: 2
+    instruction: 検索欄に "playwright" と入力する
+  - id: 3
+    instruction: Enterキーを押して検索を実行する
+  - id: 4
+    instruction: 検索結果が表示されていることを確認する（画面操作は不要、確認のみ）

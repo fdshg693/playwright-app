@@ -1,0 +1,16 @@
+logs/
+*.logs
+
+__pycache__/
+*.pyc
+.venv/
+
+node_modules/
+test-results/
+playwright-report/
+.playwright-cli/
+tests/generated/*.spec.ts
+tests/generated/*.failure-notes.json
+tests/generated/*.steps.jsonl
+
+.env
