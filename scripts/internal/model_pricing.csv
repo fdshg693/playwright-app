@@ -1,0 +1,4 @@
+model,input_price_per_1m,output_price_per_1m,cached_input_price_per_1m
+default,1.0,5.0,0.1
+gpt-5.6-luna,1.0,6.0,0.1
+MiniMax-M3,0.3,1.2,0.06

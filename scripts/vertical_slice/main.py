@@ -244,6 +244,7 @@ def run_step(
                 # since accessibility-tree snapshots can run tens of KB.
                 "snapshot": _truncate(turn_snapshot),
                 "response_output": output_items,
+                "model": model,
                 "usage": response.usage.model_dump() if response.usage else None,
                 "tool_results": tool_results,
                 "stopped": stop,

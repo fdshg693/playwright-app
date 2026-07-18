@@ -14,3 +14,5 @@ tests/generated/*.failure-notes.json
 tests/generated/*.steps.jsonl
 
 .env
+
+resources/custom_pages/nginx/run/

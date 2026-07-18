@@ -1,6 +1,9 @@
 {
   "name": "playwright-app",
   "private": true,
+  "scripts": {
+    "serve:pages": "bash resources/custom_pages/serve.sh"
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
   }

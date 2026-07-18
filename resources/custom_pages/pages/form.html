@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>フォーム</title>
+<style>
+  .tooltip-text { display: none; }
+  .tooltip-trigger:hover + .tooltip-text,
+  .tooltip-trigger:focus + .tooltip-text { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>フォーム</h1>
+  <nav aria-label="メインナビゲーション"><a href="index.html">トップへ戻る</a></nav>
+</header>
+<main>
+  <form>
+    <div>
+      <label for="name">お名前</label>
+      <input type="text" id="name" name="name">
+    </div>
+
+    <div>
+      <label for="prefecture">お住まいの都道府県</label>
+      <select id="prefecture" name="prefecture">
+        <option value="">選択してください</option>
+        <option value="tokyo">東京都</option>
+        <option value="osaka">大阪府</option>
+        <option value="hokkaido">北海道</option>
+      </select>
+    </div>
+
+    <div>
+      <input type="checkbox" id="newsletter" name="newsletter">
+      <label for="newsletter">ニュースレターに登録する</label>
+    </div>
+
+    <div>
+      <input type="checkbox" id="marketing" name="marketing" checked>
+      <label for="marketing">キャンペーン情報を受け取る</label>
+    </div>
+
+    <div>
+      <button type="button" class="tooltip-trigger" aria-describedby="tooltip-text">ヘルプ</button>
+      <span id="tooltip-text" role="tooltip" class="tooltip-text">お名前は全角・半角どちらでも入力できます</span>
+    </div>
+
+    <button type="button" id="submit-btn" onclick="document.getElementById('status-message').hidden = false;">送信</button>
+    <p id="status-message" role="status" hidden>送信しました</p>
+  </form>
+</main>
+</body>
+</html>
