@@ -1,0 +1,13 @@
+name: navigate-direct-demo
+intent: >
+  検索ページ経由のリンククリックを使わず、navigateツールの直接呼び出しでURLへ遷移できるか、
+  および fill ツールの submit 引数（入力とEnter押下を1手順にまとめた提出）が選ばれるかを
+  確認する軽量シナリオ。既存3本のシナリオはいずれもこの2経路を一度も踏んでいない。
+seed_url: "http://localhost:8080/index.html"
+steps:
+  - id: 1
+    instruction: 検索ページを経由せず、http://localhost:8080/search-empty.html に直接アクセスする
+  - id: 2
+    instruction: 検索キーワード欄に "empty" と入力してそのままEnterで検索する
+  - id: 3
+    instruction: 検索結果が見つからなかった旨のメッセージが表示されていることを確認する（画面操作は不要、確認のみ）

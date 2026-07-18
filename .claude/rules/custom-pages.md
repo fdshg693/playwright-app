@@ -1,7 +1,7 @@
 ---
 paths:
   - "resources/custom_pages/**"
-  - "scripts/stories/custom-pages-demo.yaml"
+  - "scripts/stories/*.yaml"
 ---
 
 ## 自作テストページ（resources/custom_pages）の規約

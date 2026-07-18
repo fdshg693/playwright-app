@@ -1,0 +1,8 @@
+name: search-empty-demo
+intent: >
+  add_expectation の toHaveText を既存の tooltip 以外の要素・文面でも踏ませられるか確認する
+  軽量シナリオ。検索結果0件時の固定メッセージのテキストが期待文言と一致することを検証する。
+seed_url: "http://localhost:8080/search-empty.html"
+steps:
+  - id: 1
+    instruction: 検索結果が見つからなかった旨のメッセージのテキストが「検索結果が見つかりませんでした」と一致することを確認する（画面操作は不要、確認のみ）
